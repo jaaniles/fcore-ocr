@@ -20,8 +20,11 @@ TRANSPARENT_COLOR = 0x000000  # Fully transparent color
 BACKGROUND_COLOR = win32api.RGB(0, 0, 0)  # Black semi-transparent background
 TRANSPARENCY_LEVEL = 180  # Background transparency (0-255)
 
-# Padding around text
-PADDING = 10
+# Padding around text and updated sizes
+PADDING = 20
+FONT_SIZE = 24  # Increased font size
+WINDOW_WIDTH = 600  # Wider window for table
+WINDOW_HEIGHT = 300  # Taller window for larger text
 
 # Define the RECT structure used in the overlay
 class RECT(ctypes.Structure):
@@ -31,36 +34,6 @@ class RECT(ctypes.Structure):
         ("right", ctypes.c_long),
         ("bottom", ctypes.c_long)
     ]
-
-# Define the callback function for EnumDisplayMonitors
-MonitorEnumProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.wintypes.HMONITOR, ctypes.wintypes.HDC, ctypes.POINTER(RECT), ctypes.wintypes.LPARAM)
-
-def get_monitor_positions():
-    """Get the positions of all monitors"""
-    monitor_positions = []
-
-    def monitor_enum_proc(hMonitor, hdcMonitor, lprcMonitor, dwData):
-        rct = lprcMonitor.contents
-        monitor_positions.append((rct.left, rct.top, rct.right, rct.bottom))
-        return 1  # Continue enumeration
-
-    # Call EnumDisplayMonitors using ctypes
-    user32.EnumDisplayMonitors(None, None, MonitorEnumProc(monitor_enum_proc), 0)
-    return monitor_positions
-
-def get_secondary_monitor_position():
-    """Get the position of the second monitor"""
-    monitors = get_monitor_positions()
-    if len(monitors) > 1:
-        return monitors[1][0], monitors[1][1]  # Get the second monitor position
-    else:
-        print("Only one monitor detected. Positioning on primary screen.")
-        return monitors[0][0], monitors[0][1]  # Default to the first monitor if only one is available
-
-def position_overlay_on_second_screen(hwnd):
-    """Position the overlay on the second monitor (or primary if only one exists)."""
-    x, y = get_secondary_monitor_position()
-    win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, x, y, 300, 100, win32con.SWP_SHOWWINDOW)
 
 # OverlayWindow class
 class OverlayWindow:
@@ -88,8 +61,8 @@ class OverlayWindow:
         win32gui.RegisterClass(wc)
 
         # Create the window
-        self.width = 300
-        self.height = 100
+        self.width = WINDOW_WIDTH
+        self.height = WINDOW_HEIGHT
         self.hwnd = win32gui.CreateWindowEx(
             WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST,
             wc.lpszClassName,
@@ -102,7 +75,7 @@ class OverlayWindow:
         # Set window transparency
         win32gui.SetLayeredWindowAttributes(self.hwnd, TRANSPARENT_COLOR, TRANSPARENCY_LEVEL, win32con.LWA_ALPHA)
         # Force window to stay on top
-        win32gui.SetWindowPos(self.hwnd, HWND_TOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+        win32gui.SetWindowPos(self.hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
 
         # Run the message loop
         win32gui.PumpMessages()
@@ -110,12 +83,15 @@ class OverlayWindow:
     def show(self, text, duration=None):
         """Show the overlay with the given text and auto-hide after duration."""
         with self._text_lock:
-            self.text = text
+            # Determine if text is a string or a list of dicts for table formatting
+            if isinstance(text, list):
+                self.text = self.format_text_as_table(text)  # Format text into a table
+            else:
+                self.text = text  # Display the simple string text directly
+
             self.duration = duration
             self.start_time = time() if duration else None
             self._update_text = True
-
-        position_overlay_on_second_screen(self.hwnd)
 
         # Post a custom message to update the window
         win32gui.PostMessage(self.hwnd, win32con.WM_USER + 1, 0, 0)
@@ -153,6 +129,21 @@ class OverlayWindow:
         else:
             return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
+    def format_text_as_table(self, data):
+        """Format the given text (list of dicts) into a table-like structure."""
+        # Example: assume 'data' is a list of dictionaries with player data
+        table = ""
+        headers = "Player Name".ljust(30) + "Rating".rjust(10) + "\n"
+        table += headers
+        table += "-" * len(headers) + "\n"
+
+        # Simulate table structure
+        for row in data:
+            player = row.get("player", "").ljust(30)
+            rating = str(row.get("rating", "")).rjust(10)
+            table += f"{player}{rating}\n"
+        return table
+
     def on_paint(self, hwnd):
         hdc, ps = win32gui.BeginPaint(hwnd)
 
@@ -163,8 +154,8 @@ class OverlayWindow:
         rect = RECT()
         rect.left = PADDING
         rect.top = PADDING
-        rect.right = rect.left + 300  # Initial width
-        rect.bottom = rect.top + 100  # Initial height
+        rect.right = rect.left + WINDOW_WIDTH  # Set width
+        rect.bottom = rect.top + WINDOW_HEIGHT  # Set height
 
         # Set the format flags for text layout
         format_flags = win32con.DT_LEFT | win32con.DT_WORDBREAK | win32con.DT_CALCRECT
@@ -185,7 +176,7 @@ class OverlayWindow:
         # Adjust the window size based on the measured rectangle
         self.width = rect.right - rect.left + PADDING * 2
         self.height = rect.bottom - rect.top + PADDING * 2
-        win32gui.SetWindowPos(self.hwnd, HWND_TOPMOST, 10, 10, self.width, self.height, win32con.SWP_NOZORDER)
+        win32gui.SetWindowPos(self.hwnd, win32con.HWND_TOPMOST, 10, 10, self.width, self.height, win32con.SWP_NOZORDER)
 
         # Draw the semi-transparent background behind the text
         background_rect = (0, 0, self.width, self.height)
@@ -200,7 +191,7 @@ class OverlayWindow:
         rect_draw.right = self.width - PADDING
         rect_draw.bottom = self.height - PADDING
 
-        # Draw the text
+        # Draw the text with increased font size
         format_flags = win32con.DT_LEFT | win32con.DT_WORDBREAK
         DrawTextW(hdc, text, -1, ctypes.byref(rect_draw), format_flags)
 

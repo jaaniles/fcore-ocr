@@ -1,5 +1,3 @@
-# main.py
-
 import logging
 import time
 import threading
@@ -8,7 +6,7 @@ import win32con
 from paddleocr import PaddleOCR
 from match_facts import process_match_facts
 from overlay import OverlayWindow
-from detect_screen_type import detect_screen_type
+from detect_screen_type import detect_screen_type 
 from player_performance import process_player_performance_screen
 from screenshot import take_screenshot
 
@@ -16,18 +14,16 @@ from screenshot import take_screenshot
 ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=True)
 
 # Disable PaddleOCR debug logs
-logging.getLogger('ppocr').setLevel(logging.WARNING)
-logging.getLogger('paddle').setLevel(logging.WARNING)
+logging.getLogger('ppocr').setLevel(logging.WARNING)  # Disables all logs below WARNING level
+logging.getLogger('paddle').setLevel(logging.WARNING)  # Disable debug/info logs from paddle as well
 
 # Global variables
 overlay = None
-report_type = None
+report_type = None  # The deduced report type from the first screenshot
 required_screens = []  # List of required screens for the current report type
 captured_screenshots = {}  # Dictionary to store captured screenshots
 waiting_for_submission = False
 first_screenshot_taken = False
-waiting_for_confirmation = False  # New flag to track if waiting for confirmation
-extracted_data = None  # To store extracted data (player data or match facts)
 
 # Define report types and their required screens based on the first screenshot type
 report_types = {
@@ -62,20 +58,38 @@ def process_first_screenshot():
 
         # If data extraction is required for the first screenshot, process it
         if screen_type == 'player_performance':
-            threading.Thread(
-                target=process_player_performance_screen,
-                args=(screenshot_path, ocr, overlay, on_player_performance_data_extracted)
-            ).start()
+            threading.Thread(target=process_player_performance_screen_with_ocr_display, args=(screenshot_path, ocr)).start()
         elif screen_type == 'match_facts':
-            threading.Thread(
-                target=process_match_facts,
-                args=(screenshot_path, ocr, overlay, on_match_facts_data_extracted)
-            ).start()
+            threading.Thread(target=process_match_facts, args=(screenshot_path, ocr)).start()
 
+        # Inform the user
+        remaining_screens = [screen for screen in required_screens if screen not in captured_screenshots]
+        if remaining_screens:
+            overlay.show(f"First screenshot '{screen_type}' received.\nPlease take screenshots of: {', '.join(remaining_screens)}.\nPress F12 to capture, ESC to abort.", duration=None)
+        else:
+            # All required screenshots captured
+            waiting_for_submission = True
+            overlay.show("All required screenshots captured.\nPress Enter to submit, ESC to abort.", duration=None)
     else:
         overlay.show(f"Unrecognized first screenshot '{screen_type}'.\nProcess aborted.", duration=5)
         print(f"Unrecognized first screenshot '{screen_type}'.")
         reset_process()
+
+def process_player_performance_screen_with_ocr_display(screenshot_path, ocr):
+    """Process the player performance screen, extract OCR data, and display it as a table."""
+    global overlay
+    # Display "Processing..." in the overlay
+    overlay.show("Processing player performance...", duration=5)
+
+    # Process the screenshot, run OCR, and extract player data
+    player_data = process_player_performance_screen(screenshot_path, ocr)
+
+    # Display the extracted player data in a table format using the overlay
+    if player_data:
+        formatted_data = [{'player': p['fullName'], 'rating': p['matchRating']} for p in player_data]
+        overlay.show(formatted_data)  # Use the tabular display from the overlay
+    else:
+        overlay.show("No valid player data extracted. Please try again.", duration=5)
 
 def process_additional_screenshot():
     """Process additional screenshots after the first one."""
@@ -85,7 +99,7 @@ def process_additional_screenshot():
     overlay.show("Processing...", duration=5)
 
     screenshot_path = take_screenshot()
-    screen_type = detect_screen_type(screenshot_path)
+    screen_type = detect_screen_type(screenshot_path)  # Implement this function
     print(f"Captured screenshot type: {screen_type}")
 
     # Check if the captured screen is one of the required screens and hasn't been captured yet
@@ -95,16 +109,7 @@ def process_additional_screenshot():
 
         # If data extraction is required for this screen_type, process it
         if screen_type == 'player_performance':
-            threading.Thread(
-                target=process_player_performance_screen,
-                args=(screenshot_path, ocr, overlay, on_player_performance_data_extracted)
-            ).start()
-        elif screen_type == 'simulated_player_performance':
-            # Add logic for handling simulated_player_performance
-            threading.Thread(
-                target=process_match_facts,  # Replace with the correct function
-                args=(screenshot_path, ocr, overlay, on_match_facts_data_extracted)  # Modify as necessary
-            ).start()
+            threading.Thread(target=process_player_performance_screen_with_ocr_display, args=(screenshot_path, ocr)).start()
 
         remaining_screens = [screen for screen in required_screens if screen not in captured_screenshots]
         if remaining_screens:
@@ -120,47 +125,6 @@ def process_additional_screenshot():
         overlay.show(f"Unexpected screenshot '{screen_type}'.\nPlease capture the required screenshots.", duration=5)
         print(f"Unexpected screenshot '{screen_type}'.")
 
-def on_player_performance_data_extracted(player_data):
-    global overlay, waiting_for_confirmation, extracted_data
-    extracted_data = player_data
-    extracted_data_str = "\n".join(
-        [f"{player['fullName']}: {player['matchRating']}" for player in player_data]
-    )
-    overlay.show(f"Extracted Player Data:\n{extracted_data_str}\n\nPress F10 to confirm or ESC to abort.", duration=None)
-    waiting_for_confirmation = True
-
-def on_match_facts_data_extracted(match_facts_data):
-    global overlay, waiting_for_confirmation, extracted_data
-    extracted_data = match_facts_data
-    extracted_data_str = "\n".join(
-        [f"{key}: {value}" for key, value in match_facts_data.items()]
-    )
-    overlay.show(f"Extracted Match Facts:\n{extracted_data_str}\n\nPress F10 to confirm or ESC to abort.", duration=None)
-    waiting_for_confirmation = True
-
-def confirm_extraction():
-    global waiting_for_confirmation, overlay, extracted_data
-    waiting_for_confirmation = False
-    overlay.show("Extraction confirmed. Proceeding...", duration=3)
-    print("Confirmed extracted data:", extracted_data)
-
-def handle_abort():
-    global overlay, waiting_for_submission, waiting_for_confirmation
-    overlay.show("Report aborted. Waiting for new reports.", duration=3)
-    waiting_for_confirmation = False  # Reset the flag
-    print("Aborted. Waiting for new reports.")
-    reset_process()
-
-def reset_process():
-    global report_type, required_screens, captured_screenshots, waiting_for_submission, first_screenshot_taken, waiting_for_confirmation, extracted_data
-    report_type = None
-    required_screens = []
-    captured_screenshots = {}
-    waiting_for_submission = False
-    first_screenshot_taken = False
-    waiting_for_confirmation = False  # Reset confirmation flag
-    extracted_data = None  # Clear any previous extracted data
-
 def handle_submission():
     """Handle submission of the report."""
     global overlay, waiting_for_submission
@@ -168,23 +132,39 @@ def handle_submission():
         overlay.show("Submitting report...", duration=3)
         print("Submitting...")
         # Access captured_screenshots dictionary
+        # You can add code here to process or upload the data
         reset_process()
 
+def handle_abort():
+    """Handle aborting the report process."""
+    global overlay, waiting_for_submission
+    overlay.show("Report aborted. Waiting for new reports.", duration=3)
+    print("Aborted. Waiting for new reports.")
+    reset_process()
+
+def reset_process():
+    """Reset variables to start a new report process."""
+    global report_type, required_screens, captured_screenshots, waiting_for_submission, first_screenshot_taken
+    report_type = None
+    required_screens = []
+    captured_screenshots = {}
+    waiting_for_submission = False
+    first_screenshot_taken = False
+
 def main():
-    global overlay, waiting_for_confirmation, extracted_data
+    global overlay
     overlay = OverlayWindow()  # Initialize the overlay window
 
     print("Program ready. Press F12 to start capturing screenshots.")
 
     # Initialize previous key states
     last_f12_pressed = False
-    last_f10_pressed = False
     last_esc_pressed = False
     last_enter_pressed = False
 
     try:
         while True:
-            # Check F12 key for taking screenshots
+            # Check F12 key
             f12_pressed = (win32api.GetAsyncKeyState(win32con.VK_F12) & 0x8000) != 0
             if f12_pressed and not last_f12_pressed:
                 # F12 key was just pressed
@@ -196,30 +176,20 @@ def main():
             elif not f12_pressed:
                 last_f12_pressed = False
 
-            # Check F10 key for confirming data extraction
-            f10_pressed = (win32api.GetAsyncKeyState(win32con.VK_F10) & 0x8000) != 0
-            if f10_pressed and not last_f10_pressed and waiting_for_confirmation:
-                # F10 key was just pressed
-                confirm_extraction()
-                last_f10_pressed = True
-            elif not f10_pressed:
-                last_f10_pressed = False
-
-            # Check ESC key for aborting
+            # Check ESC key
             esc_pressed = (win32api.GetAsyncKeyState(win32con.VK_ESCAPE) & 0x8000) != 0
             if esc_pressed and not last_esc_pressed:
                 # ESC key was just pressed
-                if waiting_for_confirmation:
-                    handle_abort()
-                elif waiting_for_submission or captured_screenshots:
+                if waiting_for_submission or captured_screenshots:
                     threading.Thread(target=handle_abort).start()
                 last_esc_pressed = True
             elif not esc_pressed:
                 last_esc_pressed = False
 
-            # Check Enter key for submitting data
+            # Check Enter key
             enter_pressed = (win32api.GetAsyncKeyState(win32con.VK_RETURN) & 0x8000) != 0
             if enter_pressed and not last_enter_pressed:
+                # Enter key was just pressed
                 if waiting_for_submission:
                     threading.Thread(target=handle_submission).start()
                 last_enter_pressed = True

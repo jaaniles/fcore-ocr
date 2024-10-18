@@ -25,7 +25,7 @@ def preprocess_image(image):
 
     return thresh_image
 
-def process_match_facts(screenshot_path, ocr, overlay, on_data_extracted):
+def process_match_facts(screenshot_path, ocr):
     # Load the screenshot
     image = cv2.imread(screenshot_path)
 
@@ -83,10 +83,6 @@ def process_match_facts(screenshot_path, ocr, overlay, on_data_extracted):
     print("Extracted Match Facts Data:")
     for key, value in match_facts_data.items():
         print(f"{key}: {value}")
-
-    # Call the callback function with the extracted data
-    on_data_extracted(match_facts_data)
-
 
 
 # Function to process match score
