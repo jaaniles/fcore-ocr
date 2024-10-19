@@ -68,6 +68,16 @@ def is_sim_performance_screen(extracted_text):
     
     return False
 
+def is_pre_match_screen(extracted_text):
+    """
+    Checks if the screenshot contains indicators of a 'Pre-Match' screen.
+    Add specific terms or indicators that appear in the pre-match screen.
+    """
+    # Placeholder check: Replace with actual indicators specific to pre-match
+    if "Play Match" and "Tactical View" and "Play Highlights" and "Customise" in extracted_text:
+        return True
+    return False   
+
 def detect_screen_type(image_path):
     """
     Detects the type of screen in the screenshot.
@@ -92,5 +102,7 @@ def detect_screen_type(image_path):
         return "sim_match_facts"
     elif is_sim_performance_screen(extracted_text):
         return "sim_player_performance"
+    elif is_pre_match_screen(extracted_text):
+        return "pre_match"
     else:
         return "unknown"
