@@ -6,10 +6,8 @@ import win32api
 import threading
 from time import time
 
-# Load user32.dll for SetTimer and KillTimer
 user32 = ctypes.windll.user32
 
-# Constants for window style
 WS_EX_LAYERED = 0x80000
 WS_EX_TRANSPARENT = 0x20
 WS_EX_TOPMOST = 0x00000008
@@ -20,11 +18,10 @@ TRANSPARENT_COLOR = 0x000000  # Fully transparent color
 BACKGROUND_COLOR = win32api.RGB(0, 0, 0)  # Black semi-transparent background
 TRANSPARENCY_LEVEL = 180  # Background transparency (0-255)
 
-# Padding around text and updated sizes
 PADDING = 20
-FONT_SIZE = 24  # Increased font size
-WINDOW_WIDTH = 600  # Wider window for table
-WINDOW_HEIGHT = 300  # Taller window for larger text
+FONT_SIZE = 24 
+WINDOW_WIDTH = 600  
+WINDOW_HEIGHT = 300 
 
 # Define the RECT structure used in the overlay
 class RECT(ctypes.Structure):
@@ -131,7 +128,6 @@ class OverlayWindow:
 
     def format_text_as_table(self, data):
         """Format the given text (list of dicts) into a table-like structure."""
-        # Example: assume 'data' is a list of dictionaries with player data
         table = ""
         headers = "Player Name".ljust(30) + "Rating".rjust(10) + "\n"
         table += headers

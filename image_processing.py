@@ -1,10 +1,5 @@
-# image_processing.py
-
-import os
-from PIL import Image
 import cv2
 import numpy as np
-
 
 def preprocess_image(image, upscale=True):
     """Preprocess the image to improve OCR accuracy."""
@@ -34,80 +29,68 @@ def preprocess_image(image, upscale=True):
 
     return processed_image
 
-def upscale_image(image): 
+def upscale_image(image, amount=1.5): 
     """Preprocess the image to improve OCR accuracy."""
     # Upscale the image slightly to enhance OCR accuracy
-    upscaled_image = cv2.resize(image, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_LINEAR)
+    upscaled_image = cv2.resize(image, None, fx=amount, fy=amount, interpolation=cv2.INTER_LINEAR)
 
     return upscaled_image
 
-def preprocess_number_image(image, upscale=True):
+def increase_vibrance(image, increase_amount=50):
     """
-    Preprocess the player form image for better OCR results.
-    Steps:
-    - Convert the image to grayscale
-    - Apply adaptive or binary thresholding to improve contrast
-    - Use morphological operations (dilate/erode) to clean up noise
+    Increase the vibrance of an image by manipulating the saturation in HSV color space.
+    
+    Args:
+        image: Input BGR image.
+        increase_amount: The amount by which to increase the vibrance (saturation).
+        
+    Returns:
+        Vibrance enhanced image.
     """
-    # Upscale the image slightly to enhance OCR accuracy
-    if upscale:
-        image = cv2.resize(image, None, fx=3, fy=3, interpolation=cv2.INTER_LINEAR)
-    else:
-        image = image
+    # Convert image to HSV color space
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    
+    # Split into H, S, V channels
+    h, s, v = cv2.split(hsv)
+    
+    # Increase the saturation channel
+    s = np.clip(s + increase_amount, 0, 255)
+    
+    # Merge the channels back
+    hsv_enhanced = cv2.merge([h, s, v])
+    
+    # Convert back to BGR color space
+    vibrant_image = cv2.cvtColor(hsv_enhanced, cv2.COLOR_HSV2BGR)
+    
+    return vibrant_image
 
-    # Step 1: Convert to grayscale
+# Works very well for dark backgrounds
+def preprocess(image):
+    # Step 1: Convert the image to grayscale
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Apply a mild Gaussian Blur to reduce noise
-    blurred = cv2.GaussianBlur(gray_image, (9, 9), 0)
+    # Step 2: Calculate the average brightness of the grayscale image
+    avg_brightness = np.mean(gray_image)
 
-    # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(blurred)
+    # Step 3: Define brightness thresholds
+    dark_threshold = 100
+    medium_brightness_threshold = 180
 
-    # Step 2: Apply binary thresholding to improve contrast
-    # This will make the number stand out clearly from the background
-    _, threshold_image = cv2.threshold(enhanced, 90, 255, cv2.THRESH_BINARY)
+    print("AVG BRIGHTNESS", avg_brightness)
 
-    # Optional: Apply additional blur to further enhance the 'haloing' effect
-    final_blur = cv2.GaussianBlur(dilated_image, (3, 3), 0)
+    if avg_brightness < dark_threshold:
+        blurred_image = cv2.GaussianBlur(gray_image, (5, 5), 0)
+        _, threshold_image = cv2.threshold(blurred_image, 0, 200, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        kernel = np.ones((3, 3), np.uint8)
+        dilated_image = cv2.dilate(threshold_image, kernel, iterations=1)
+        sharpening_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+        sharpened_image = cv2.filter2D(dilated_image, -1, sharpening_kernel)
 
-    # Return the preprocessed image
-    return final_blur
+        return sharpened_image
 
-def preprocess_image2(image, upscale=True):
-    """Preprocess the image to improve OCR accuracy, including edge detection."""
-    # Upscale the image slightly to enhance OCR accuracy
-    #upscaled_image = cv2.resize(image, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_LINEAR)
+    elif avg_brightness > dark_threshold and avg_brightness < medium_brightness_threshold:
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    if upscale:
-        image = cv2.resize(image, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_LINEAR)
+        return gray_image
     else:
-        image = image
-
-    # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Apply bilateral filter to reduce noise while keeping edges
-    filtered_image = cv2.bilateralFilter(gray, d=9, sigmaColor=75, sigmaSpace=75)
-
-    # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
-    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(16, 16))
-    enhanced = clahe.apply(filtered_image)
-
-    # Apply adaptive thresholding instead of Otsu's thresholding
-    adaptive_thresh = cv2.adaptiveThreshold(
-        enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-
-    # Apply morphological closing to fill gaps in text and reduce noise
-    kernel = np.ones((2, 2), np.uint8)
-    morph_image = cv2.morphologyEx(adaptive_thresh, cv2.MORPH_CLOSE, kernel)
-
-    # Apply Canny edge detection to further enhance text boundaries
-    edges = cv2.Canny(morph_image, 100, 200)
-
-    # Convert back to BGR for PaddleOCR
-    processed_image = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-
-    return processed_image
+        return image
