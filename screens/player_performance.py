@@ -1,9 +1,8 @@
 import os
 import cv2
-import numpy as np
-from crop import crop_area, crop_image
-from image_processing import grayscale_image, preprocess_image, upscale_image
-from PIL import Image
+from check_for_mvp import check_for_mvp
+from crop import crop_image
+from image_processing import grayscale_image, upscale_image
 
 from ocr import annotate_ocr_results, paddleocr, parse_ocr
 from player_name import clean_player_name, is_valid_player_name
@@ -94,7 +93,7 @@ def extract_player_data(ocr_data, image):
                     # Check for MVP only if not already found
                     is_mvp = False
                     if not mvp_found and last_name_bbox:
-                        is_mvp = check_for_mvp(image, last_name_bbox, full_name)
+                        is_mvp = check_for_mvp(image, last_name_bbox, full_name, search_x_offset=190, folder=FOLDER)
                         if is_mvp:
                             mvp_found = True  # Stop checking further once found
 
@@ -114,55 +113,6 @@ def extract_player_data(ocr_data, image):
     player_data = [player for i in range(len(ocr_iterator)) if (player := process_player(i))]
 
     return player_data
-
-def check_for_mvp(image, last_name_bbox, player_name):
-    """
-    Check if the player has the MVP icon based on color detection.
-    
-    Parameters:
-        image (np.array): The original image containing the player data.
-        last_name_bbox (list): The bounding box of the player's last name.
-    
-    Returns:
-        bool: True if the player is the MVP, False otherwise.
-    """
-    # Get the coordinates for the last name's bounding box
-    x_min, y_min = last_name_bbox[0]  # Top-left corner of the last name
-    x_max, y_max = last_name_bbox[2]  # Bottom-right corner of the last name
-
-    # Calculate the midpoint for Y and a leftward X value to search for the icon
-    y_mid = (y_min + y_max) // 2
-    search_x = x_min - 190 
-
-    # Crop a small 30x30 pixel area for analysis
-    cropped_area = crop_area(image, search_x, y_mid - 15, 30, 30)
-
-    # Ensure the cropped area is valid (not empty)
-    if cropped_area is None or cropped_area.size == 0:
-        print(f"Error: Cropped area for {player_name} is empty or invalid.")
-        return False
-    
-    if DEBUG:
-        save_image(cropped_area, FOLDER, f"mvp_{player_name}.png")
-
-    # Convert the cropped area to HSV
-    try:
-        hsv_cropped = cv2.cvtColor(cropped_area, cv2.COLOR_BGR2HSV)
-    except cv2.error as e:
-        print(f"OpenCV error when converting cropped area to HSV for {player_name}: {e}")
-        return False
-
-    # Define HSV color range for detecting gold/yellow color
-    lower_gold = (20, 100, 100)
-    upper_gold = (30, 255, 255)
-
-    # Create a mask to detect yellow/gold pixels
-    mask = cv2.inRange(hsv_cropped, lower_gold, upper_gold)
-
-    # Calculate the percentage of yellow pixels
-    yellow_percentage = (cv2.countNonZero(mask) / mask.size) * 100
-
-    return yellow_percentage > 75  # Return True if more than 75% of the area is yellow/gold
 
 def crop_player_performance(image):
     """Crop the image to focus on the relevant area with player names and ratings."""

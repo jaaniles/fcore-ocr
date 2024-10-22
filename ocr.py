@@ -9,6 +9,26 @@ ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=True)
 
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 
+def extract_text_from_image(image_path):
+    """
+    Extracts text from the given image using PaddleOCR.
+    """
+    result = paddleocr(image_path)
+
+    if result is None:
+        return []
+    elif len(result) == 0:
+        return []
+
+    ocr_output = []
+    for line in result:
+        if len(line) == 0:
+            continue
+
+        for text_line in line:
+            ocr_output.append(text_line[1][0])
+    return " ".join(ocr_output)
+
 def extract_number_value(ocr_result):
     for bbox, text, _ in parse_ocr(ocr_result):
         if text.isdigit() or text.replace('.', '', 1).isdigit():
@@ -43,7 +63,7 @@ def annotate_ocr_results(image, folder, ocr_results):
             cv2.rectangle(image, 
                           (int(bbox[0][0]), int(bbox[0][1])), 
                           (int(bbox[2][0]), int(bbox[2][1])), 
-                          (0, 0, 255), 2)  # Red bounding box
+                          (255, 0, 0), 2)  # Red bounding box
 
     # Save the annotated image
     cv2.imwrite(os.path.join(folder, f"annotated_image.png"), image)

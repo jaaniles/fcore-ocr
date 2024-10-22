@@ -10,6 +10,7 @@ from overlay import OverlayWindow
 from detect_screen_type import detect_screen_type
 from screens.player_performance import process_player_performance_screen
 from screens.match_facts import process_match_facts
+from screens.player_performance_extended import process_player_performance_extended
 from screens.pre_match import load_pre_match_data, process_pre_match
 from screens.sim_match_performance import process_sim_match_performance
 from screenshot import take_screenshot
@@ -75,6 +76,10 @@ def start_main_process(selected_team, overlay):
                     pre_match_data = None  
 
                     pprint.pprint(player_performance)
+                elif screen_type == "player_performance_extended":
+                    overlay.show("Player performance extended screen detected. Processing...", duration=5)
+                    player_performance_extended = process_player_performance_extended(screenshot_path)
+
 
                 else:
                     overlay.show("Unexpected screen detected. Please take the correct screenshot.", duration=5)

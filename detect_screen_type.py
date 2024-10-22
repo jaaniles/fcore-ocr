@@ -1,68 +1,91 @@
+import difflib
 import os
 import re
 
-from ocr import paddleocr
+from ocr import extract_text_from_image, paddleocr
 
-def extract_text_from_image(image_path):
+
+def fuzzy_match(ocr_output, keyword, cutoff=0.8):
     """
-    Extracts text from the given image using PaddleOCR.
+    Check if a keyword is present in the OCR output using fuzzy matching.
+    
+    Parameters:
+        ocr_output (str): The OCR output text.
+        keyword (str): The keyword to search for.
+        cutoff (float): The matching accuracy threshold (0 to 1).
+        
+    Returns:
+        bool: True if the keyword is found with sufficient similarity, False otherwise.
     """
-    result = paddleocr(image_path)
-
-    if result is None:
-        return []
-    elif len(result) == 0:
-        return []
-
-    ocr_output = []
-    for line in result:
-        if len(line) == 0:
-            continue
-
-        for text_line in line:
-            ocr_output.append(text_line[1][0])
-    return " ".join(ocr_output)
+    return difflib.get_close_matches(keyword, ocr_output.split(), cutoff=cutoff)
 
 def is_match_facts_screen(ocr_output):
     """
     Checks if the screenshot contains indicators of a 'Match Facts' screen.
-    Looks for terms like 'Possession %', 'Shots', or 'Pass Accuracy %'.
     """
+    all_keywords = ["Match Facts"]
+    any_keywords = ["Shots", "Passes Attempted", "Pass Accuracy %", "Tackles", "Possession"]
+    failable_keywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
 
-    keywords = ["Match Facts", "Trainer", "Team Management"]
-    failableKeywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
-
-    for word in failableKeywords:
-        if word in ocr_output:
-            return False
-        
-    for word in keywords:
-        if word not in ocr_output:
+    # Step 1: Check if any of the failable keywords are present, return False if found
+    for word in failable_keywords:
+        if fuzzy_match(ocr_output, word):
             return False
 
-    return True
+    # Step 2: Check if all the mandatory keywords are present, return False if any are missing
+    for word in all_keywords:
+        if not fuzzy_match(ocr_output, word):
+            return False
+
+    # Step 3: Check if any of the optional keywords are present, return True if found
+    for word in any_keywords:
+        if fuzzy_match(ocr_output, word):
+            return True
+
+    # If no matches found for optional keywords, return False
+    return False
 
 def is_performance_screen(ocr_output):
     """
     Checks if the screenshot contains indicators of a 'Performance' screen.
     Looks for player ratings (e.g., '6.1', '7.5') or player positions (e.g., 'RB', 'LCM').
     """
-
-    failableKeywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
-    for word in failableKeywords:
-        if word in ocr_output:
+    failable_keywords = ["Fitness", "Ratings", "Stats", "Gameplan", "Overall Position", "Summary"]
+    
+    for word in failable_keywords:
+        if fuzzy_match(ocr_output, word):
             return False
 
     rating_pattern = r'\b\d\.\d\b'  # Regular expression to find ratings like '6.1', '7.5'
     ratings_found = re.findall(rating_pattern, ocr_output)
     
-    positions = ["RB", "LCM", "RM", "CB", "RW", "LW", "ST", "CM", "GK"]  # Player positions
+    positions = ["RB", "LCM", "RM", "CB", "RW", "LW", "ST", "CM", "GK"]
     positions_found = False
     for position in positions:
-        if position in ocr_output:
+        if fuzzy_match(ocr_output, position):
             positions_found = True
 
-    return ratings_found and positions_found
+    return bool(ratings_found) and positions_found
+
+def is_performance_extended_screen(ocr_output):
+    """
+    Checks if the screenshot contains indicators of an 'Extended Performance' screen.
+    """
+
+    # Keywords that must be present
+    all_keywords = ["Player Performance", "Summary", "OVERALL POSITION"]
+    # Keywords that will fail the ckec
+    failableKeywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
+    for word in failableKeywords:
+        if word in ocr_output:
+            return False
+
+    # Check if all the mandatory keywords are present, return False if any are missing
+    for word in all_keywords:
+        if word not in ocr_output:
+            return False
+        
+    return True
 
 def is_sim_match_facts_screen(ocr_output):
     """
@@ -109,18 +132,14 @@ def is_pre_match_screen(ocr_output):
 def detect_screen_type(image_path):
     """
     Detects the type of screen in the screenshot.
-    Supports detection of:
-    - match_facts
-    - performance
-    - sim_match_facts
-    - sim_performance
-
     Returns the detected screen type as a string or 'unknown'.
     """
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"{image_path} does not exist.")
 
     ocr_output = extract_text_from_image(image_path)
+
+    print(ocr_output)
 
     if is_match_facts_screen(ocr_output):
         return "match_facts"
@@ -132,5 +151,7 @@ def detect_screen_type(image_path):
         return "sim_match_performance"
     elif is_pre_match_screen(ocr_output):
         return "pre_match"
+    elif is_performance_extended_screen(ocr_output):
+        return "player_performance_extended"
     else:
         return "unknown"
