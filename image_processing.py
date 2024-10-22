@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 
+def grayscale_image(image):
+    """Convert the image to grayscale."""
+    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
 def preprocess_image(image, upscale=True):
     """Preprocess the image to improve OCR accuracy."""
     # Upscale the image slightly to enhance OCR accuracy

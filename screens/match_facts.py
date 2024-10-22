@@ -4,11 +4,69 @@ import cv2
 
 from crop import crop_image, crop_region
 from image_processing import upscale_image
-from ocr import extract_number_value
+from ocr import extract_number_value, paddleocr
 
 DEBUG = True
 FOLDER = './images/match_facts'
 os.makedirs(FOLDER, exist_ok=True)
+
+def process_match_facts(screenshot_path):
+    image = cv2.imread(screenshot_path)
+
+    # Co-ordinates for cropping the stats
+    match_score_coords = (1900, 80, 3440 - 400, 1440 - 1270)  
+    possession_stats_coords = (1950, 375, 3400 - 880, 1440 - 880) 
+
+    shots_stats_coords = (1550, 715, 3440 - 500, 1440 - 620)
+    passes_stats_coords = (1550, 800, 3440 - 500, 920)
+    accuracy_stats_coords = (1550, 900, 3440 - 500, 1020)
+    tackles_stats_coords = (1550, 1000, 3440 - 500, 1100)
+
+    # Crop the relevant areas
+    cropped_match_score = crop_image(image, match_score_coords)
+    cropped_possession = crop_image(image, possession_stats_coords)
+    cropped_shots = crop_image(image, shots_stats_coords)
+    cropped_passes = crop_image(image, passes_stats_coords)
+    cropped_accuracy = crop_image(image, accuracy_stats_coords)
+    cropped_tackles = crop_image(image, tackles_stats_coords)
+    
+    # Apply OCR to each cropped area
+    match_score_result = paddleocr(cropped_match_score)
+    possession_stats_result = paddleocr(cropped_possession)
+    shots_result = paddleocr(cropped_shots)
+    passes_result = paddleocr(cropped_passes)
+    accuracy_result = paddleocr(cropped_accuracy)
+    tackles_result = paddleocr(cropped_tackles)
+
+    home, away = process_match_score(match_score_result)
+    home_possession, away_possession = process_possession_stats(possession_stats_result)
+    home_shots, away_shots = extract_value(shots_result, "Shots", cropped_shots)
+    home_passes, away_passes = extract_value(passes_result, "Passes", cropped_passes)
+    home_accuracy, away_accuracy = extract_value(accuracy_result, "Accuracy", cropped_accuracy)
+    home_tackles, away_tackles = extract_value(tackles_result, "Tackles", cropped_tackles)
+    home_team = home['team_name']
+    away_team = away['team_name']
+    home_score = home['score']
+    away_score = away['score']
+
+    print("Match Score:")
+    print(home_team + " - " + away_team)
+    print(str(home_score) + " - " + str(away_score))
+
+    print("Possession Stats:")
+    print(home_possession, away_possession)
+
+    print("Shots:")
+    print(home_shots, away_shots)
+
+    print("Passes:")
+    print(home_passes, away_passes)
+
+    print("Accuracy:")
+    print(home_accuracy, away_accuracy)
+
+    print("Tackles:")
+    print(home_tackles, away_tackles)
 
 # Helper function to calculate the center of a bounding box
 def calculate_center(bounding_box):
@@ -19,7 +77,7 @@ def calculate_center(bounding_box):
     return center_x, center_y
 
 # Main function to extract values
-def extract_value(ocr_result, ocr, keyword, image):
+def extract_value(ocr_result, keyword, image):
     TRAVERSE = 505
     CROP_WIDTH = 175
     CROP_HEIGHT = 70
@@ -54,10 +112,10 @@ def extract_value(ocr_result, ocr, keyword, image):
                         right_image_path = os.path.join(FOLDER, f"away_{keyword}.png")
                         cv2.imwrite(right_image_path, cropped_right)
 
-                    left_ocr_result = ocr.ocr(cropped_left) 
+                    left_ocr_result = paddleocr(cropped_left) 
                     if not left_ocr_result or left_ocr_result == [None] or len(left_ocr_result) == 0:
                         left_ocr_result = []
-                    right_ocr_result = ocr.ocr(cropped_right)
+                    right_ocr_result = paddleocr(cropped_right)
                     if not right_ocr_result or right_ocr_result == [None] or len(right_ocr_result) == 0:
                         right_ocr_result = []
                     
@@ -68,73 +126,15 @@ def extract_value(ocr_result, ocr, keyword, image):
 
     return None, None
 
-def process_match_facts(screenshot_path, ocr):
-    image = cv2.imread(screenshot_path)
-
-    # Co-ordinates for cropping the stats
-    match_score_coords = (1900, 80, 3440 - 400, 1440 - 1270)  
-    possession_stats_coords = (1950, 375, 3400 - 880, 1440 - 880) 
-
-    shots_stats_coords = (1550, 715, 3440 - 500, 1440 - 620)
-    passes_stats_coords = (1550, 800, 3440 - 500, 920)
-    accuracy_stats_coords = (1550, 900, 3440 - 500, 1020)
-    tackles_stats_coords = (1550, 1000, 3440 - 500, 1100)
-
-    # Crop the relevant areas
-    cropped_match_score = crop_image(image, match_score_coords)
-    cropped_possession = crop_image(image, possession_stats_coords)
-    cropped_shots = crop_image(image, shots_stats_coords)
-    cropped_passes = crop_image(image, passes_stats_coords)
-    cropped_accuracy = crop_image(image, accuracy_stats_coords)
-    cropped_tackles = crop_image(image, tackles_stats_coords)
-    
-    # Apply OCR to each cropped area
-    match_score_result = ocr.ocr(cropped_match_score)
-    possession_stats_result = ocr.ocr(cropped_possession)
-    shots_result = ocr.ocr(cropped_shots)
-    passes_result = ocr.ocr(cropped_passes)
-    accuracy_result = ocr.ocr(cropped_accuracy)
-    tackles_result = ocr.ocr(cropped_tackles)
-
-    home, away = process_match_score(match_score_result)
-    home_possession, away_possession = process_possession_stats(possession_stats_result)
-    home_shots, away_shots = extract_value(shots_result, ocr, "Shots", cropped_shots)
-    home_passes, away_passes = extract_value(passes_result, ocr, "Passes", cropped_passes)
-    home_accuracy, away_accuracy = extract_value(accuracy_result, ocr, "Accuracy", cropped_accuracy)
-    home_tackles, away_tackles = extract_value(tackles_result, ocr, "Tackles", cropped_tackles)
-    home_team = home['team_name']
-    away_team = away['team_name']
-    home_score = home['score']
-    away_score = away['score']
-
-    print("Match Score:")
-    print(home_team + " - " + away_team)
-    print(str(home_score) + " - " + str(away_score))
-
-    print("Possession Stats:")
-    print(home_possession, away_possession)
-
-    print("Shots:")
-    print(home_shots, away_shots)
-
-    print("Passes:")
-    print(home_passes, away_passes)
-
-    print("Accuracy:")
-    print(home_accuracy, away_accuracy)
-
-    print("Tackles:")
-    print(home_tackles, away_tackles)
-
 def process_match_score(ocr_output):
     if not ocr_output:
-        return {'time': None, 'home_team': None, 'away_team': None, 'home_score': None, 'away_score': None}
+        return {'home_team': None, 'away_team': None, 'home_score': None, 'away_score': None}
     
     items = ocr_output[0]
     text_items = []
 
     if not items:
-        return {'time': None, 'home_team': None, 'away_team': None, 'home_score': None, 'away_score': None}
+        return {'home_team': None, 'away_team': None, 'home_score': None, 'away_score': None}
 
     for item in items:
         coords = item[0]
@@ -151,9 +151,7 @@ def process_match_score(ocr_output):
 
     for item in text_items:
         text = item['text']
-        if re.match(r'\d{1,2}:\d{2}', text):
-            time = text
-        elif re.search(r'[-:]', text):
+        if re.search(r'[-:]', text):
             score_text = text.replace(' ', '')
             match = re.match(r'(\d+)[-:](\d+)', score_text)
             if match:

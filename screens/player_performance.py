@@ -3,13 +3,14 @@ import cv2
 from image_processing import preprocess_image
 from PIL import Image
 
+from ocr import paddleocr
+
 # Allow saving images for debugging purposes
 DEBUG = True
-
-FOLDER = './screenshots/player_performance'
+FOLDER = './images/player_performance'
 os.makedirs(FOLDER, exist_ok=True)
 
-def process_player_performance_screen(screenshot_path, ocr):
+def process_player_performance_screen(screenshot_path):
     """Process the player performance screen to extract data."""
     # Crop the image
     cropped_image_path = crop_player_performance(screenshot_path)
@@ -18,7 +19,7 @@ def process_player_performance_screen(screenshot_path, ocr):
     
     processed_image = preprocess_image(image)
     
-    result = ocr.ocr(processed_image, cls=True)
+    result = paddleocr(processed_image)
     
     player_data = extract_player_data(result)
 

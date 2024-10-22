@@ -1,20 +1,20 @@
 import signal
 import time
-import win32api
-import win32con
+import win32api # type: ignore
+import win32con # type: ignore
 
-from paddleocr import PaddleOCR
-from inquirer import list_input
+from inquirer import list_input # type: ignore
 from auth import fetch_teams, load_credentials, login_to_firebase
 from overlay import OverlayWindow
 from detect_screen_type import detect_screen_type
-from player_performance import process_player_performance_screen
-from match_facts import process_match_facts
-from pre_match import load_pre_match_data, process_pre_match
+from screens.player_performance import process_player_performance_screen
+from screens.match_facts import process_match_facts
+from screens.pre_match import load_pre_match_data, process_pre_match
+from screens.sim_match_performance import process_sim_match_performance
 from screenshot import take_screenshot
+from screens.sim_match_facts import process_sim_match_facts
 
 running = True  # Global flag to control the main process
-ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=True)
 
 # Function to handle team selection via Inquirer
 def select_team(teams):
@@ -44,22 +44,36 @@ def start_main_process(selected_team, overlay):
                 if screen_type == "pre_match":
                     overlay.show("Pre-match screen detected.\nProcessing...", duration=5)
                     
-                    pre_match_data = process_pre_match(screenshot_path, ocr)
+                    pre_match_data = process_pre_match(screenshot_path)
                     #print (pre_match_data)
                     #save_pre_match_data(pre_match_data)
                     #overlay.show(f"Pre-match captured for {pre_match_data['home_team']} vs {pre_match_data['away_team']}", duration=5)
 
                 elif screen_type == "match_facts":
                     overlay.show("Match facts detected. Processing...", duration=5)
-                    process_match_facts(screenshot_path, ocr)
+                    match_facts = process_match_facts(screenshot_path)
                     overlay.show("Match report generated. Match complete.", duration=5)
                     pre_match_data = None 
 
+                elif screen_type == "sim_match_facts":
+                    overlay.show("Sim match facts detected. Processing...", duration=5)
+                    sim_match_facts = process_sim_match_facts(screenshot_path)
+                    overlay.show("Match report generated. Match complete.", duration=5)
+                    pre_match_data = None
+
+                elif screen_type == "sim_match_performance":
+                    overlay.show("Sim match performance screen detected. Processing...", duration=5)
+                    sim_match_performance = process_sim_match_performance(screenshot_path)
+                    overlay.show("Match report generated. Match complete.", duration=5)
+                    pre_match_data = None
+
                 elif screen_type == "player_performance":
                     overlay.show("Player performance screen detected. Processing...", duration=5)
-                    process_player_performance_screen(screenshot_path, overlay)
+                    player_performance = process_player_performance_screen(screenshot_path)
                     overlay.show("Match report generated. Match complete.", duration=5)
                     pre_match_data = None  
+
+                    print(player_performance)
 
                 else:
                     overlay.show("Unexpected screen detected. Please take the correct screenshot.", duration=5)

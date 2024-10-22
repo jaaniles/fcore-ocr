@@ -1,15 +1,13 @@
-from paddleocr import PaddleOCR
 import os
 import re
 
-# Initialize PaddleOCR globally
-ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=True)
+from ocr import paddleocr
 
 def extract_text_from_image(image_path):
     """
     Extracts text from the given image using PaddleOCR.
     """
-    result = ocr.ocr(image_path, cls=True)
+    result = paddleocr(image_path)
 
     if result is None:
         return []
@@ -30,19 +28,33 @@ def is_match_facts_screen(ocr_output):
     Checks if the screenshot contains indicators of a 'Match Facts' screen.
     Looks for terms like 'Possession %', 'Shots', or 'Pass Accuracy %'.
     """
-    if "Possession %" in ocr_output or "Shots" in ocr_output or "Pass Accuracy %" in ocr_output:
-        return True
-    return False
+
+    keywords = ["Possession %", "Shots", "Pass Accuracy %"]
+    failableKeywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
+
+    for word in failableKeywords:
+        if word in ocr_output:
+            return False
+        
+    for word in keywords:
+        if word not in ocr_output:
+            return False
+
+    return True
 
 def is_performance_screen(ocr_output):
     """
     Checks if the screenshot contains indicators of a 'Performance' screen.
     Looks for player ratings (e.g., '6.1', '7.5') or player positions (e.g., 'RB', 'LCM').
     """
+
+    failableKeywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
+    for word in failableKeywords:
+        if word in ocr_output:
+            return False
+
     rating_pattern = r'\b\d\.\d\b'  # Regular expression to find ratings like '6.1', '7.5'
     ratings_found = re.findall(rating_pattern, ocr_output)
-    #if ratings_found:
-    #    return True
     
     positions = ["RB", "LCM", "RM", "CB", "RW", "LW", "ST", "CM", "GK"]  # Player positions
     positions_found = False
@@ -55,27 +67,33 @@ def is_performance_screen(ocr_output):
 def is_sim_match_facts_screen(ocr_output):
     """
     Checks if the screenshot contains indicators of a 'Sim Match Facts' screen.
-    Add specific terms or indicators that appear in the simulated match facts screen.
     """
-    # Placeholder check: Replace with actual indicators specific to sim match facts
-    if "Sim Possession %" in ocr_output or "Sim Shots" in ocr_output:
-        return True
-    return False
 
-def is_sim_performance_screen(ocr_output):
+    # All of these words need to be present    
+    keywords = ["Fitness", "Ratings", "Stats", "Gameplan", "Possession", "Shots", "Chances"]
+    # Convert the OCR output to a single string for easy search
+
+    # Check if each keyword from the combined list is in the OCR text
+    for word in keywords:
+        if word not in ocr_output:
+            return False
+
+    return True
+
+
+def is_sim_match_performance_screen(ocr_output):
     """
-    Checks if the screenshot contains indicators of a 'Sim Performance' screen.
-    Add specific terms or indicators that appear in the simulated performance screen.
+    Checks if the screenshot contains indicators of a 'Sim Match Player Performance' screen.
     """
-    # Placeholder check: Replace with actual indicators specific to sim performance
-    sim_rating_pattern = r'\bSim\d\.\d\b'  # Simulated ratings, just as an example
-    sim_ratings_found = re.findall(sim_rating_pattern, ocr_output)
-    
-    positions = ["RB", "LCM", "RM", "CB", "RW", "LW", "ST", "CM", "GK"]  # Player positions
-    if sim_ratings_found or any(position in ocr_output for position in positions):
-        return True
-    
-    return False
+    # All of these words need to be present    
+    keywords = ["Fitness", "Ratings", "Stats", "Gameplan", "Starting 11", "Bench"]
+
+    # Check if each keyword from the combined list is in the OCR text
+    for word in keywords:
+        if word not in ocr_output:
+            return False
+
+    return True
 
 def is_pre_match_screen(ocr_output):
     """
@@ -85,7 +103,8 @@ def is_pre_match_screen(ocr_output):
     # Placeholder check: Replace with actual indicators specific to pre-match
     if "Play Match" and "Tactical View" and "Play Highlights" and "Customise" in ocr_output:
         return True
-    return False   
+    return False
+
 
 def detect_screen_type(image_path):
     """
@@ -109,8 +128,8 @@ def detect_screen_type(image_path):
         return "player_performance"
     elif is_sim_match_facts_screen(ocr_output):
         return "sim_match_facts"
-    elif is_sim_performance_screen(ocr_output):
-        return "sim_player_performance"
+    elif is_sim_match_performance_screen(ocr_output):
+        return "sim_match_performance"
     elif is_pre_match_screen(ocr_output):
         return "pre_match"
     else:

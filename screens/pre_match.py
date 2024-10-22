@@ -7,14 +7,16 @@ import cv2
 import numpy as np
 from crop import crop_area, crop_image
 from image_processing import upscale_image
+from ocr import paddleocr
+from player_name import is_valid_player_name
 
 # Allow saving images for debugging purposes
 DEBUG = True
 
-PRE_MATCH_FOLDER = './screenshots/pre_match'
-os.makedirs(PRE_MATCH_FOLDER, exist_ok=True)
+FOLDER = './images/pre_match'
+os.makedirs(FOLDER, exist_ok=True)
 
-def process_pre_match(screenshot_path, ocr):
+def process_pre_match(screenshot_path):
     # Load the screenshot
     image = cv2.imread(screenshot_path)
     upscaled_image = upscale_image(image)
@@ -35,20 +37,19 @@ def process_pre_match(screenshot_path, ocr):
                                           (block_coords[2], block_coords[3]), (255, 255, 0), thickness=-1)
 
     # Step 3: Perform OCR on each cropped section
-    match_date_result = ocr.ocr(cropped_match_date)
-    starting_11_result = ocr.ocr(processed_starting_11)
+    match_date_result = paddleocr(cropped_match_date)
+    starting_11_result = paddleocr(processed_starting_11)
 
     # Save cropped images for debugging
     if DEBUG:
-        match_date_path = os.path.join(PRE_MATCH_FOLDER, "cropped_match_date.png")
-        starting_11_path = os.path.join(PRE_MATCH_FOLDER, "cropped_starting_11.png")
+        match_date_path = os.path.join(FOLDER, "cropped_match_date.png")
+        starting_11_path = os.path.join(FOLDER, "cropped_starting_11.png")
         cv2.imwrite(match_date_path, cropped_match_date)
         cv2.imwrite(starting_11_path, processed_starting_11)
         annotate_ocr_results(processed_starting_11, starting_11_result)
 
-
     match_date = extract_match_date(match_date_result)
-    starting_11 = extract_starting_11(starting_11_result, cropped_starting_11, ocr)
+    starting_11 = extract_starting_11(starting_11_result, cropped_starting_11)
     pprint.pprint(starting_11)
 
     return {
@@ -71,9 +72,9 @@ def annotate_ocr_results(image, ocr_results):
                           (0, 0, 255), 2)  # Red bounding box
 
     # Save the annotated image
-    cv2.imwrite(os.path.join(PRE_MATCH_FOLDER, f"annotated_pre_match.png"), image)
+    cv2.imwrite(os.path.join(FOLDER, f"annotated_pre_match.png"), image)
 
-def extract_starting_11(ocr_results, image, ocr):
+def extract_starting_11(ocr_results, image):
     """
     Process the OCR results to extract player names and crop mood and player form symbols based on bounding boxes.
     """
@@ -132,18 +133,14 @@ def extract_starting_11(ocr_results, image, ocr):
             # Preprocess for better OCR results
             processed_player_form, isPositive = preprocess_player_form_image(player_form_area)
             # Perform OCR 
-            player_form_result = ocr.ocr(processed_player_form)  # Perform OCR on the form area
-
-            print(player_name, player_form_result)
-            
-
+            player_form_result = paddleocr(processed_player_form)  # Perform OCR on the form area
             player_form_value = process_player_form_value(player_form_result, isPositive)
 
             if DEBUG:   
                 # Save image for debugging
-                player_form_path = os.path.join(PRE_MATCH_FOLDER, f"form_{player_name}.png")
+                player_form_path = os.path.join(FOLDER, f"form_{player_name}.png")
                 cv2.imwrite(player_form_path, processed_player_form)
-                mood_path = os.path.join(PRE_MATCH_FOLDER, f"mood_{player_name}.png")
+                mood_path = os.path.join(FOLDER, f"mood_{player_name}.png")
                 cv2.imwrite(mood_path, mood_area)
 
             # Append player info with relevant data
@@ -260,7 +257,6 @@ def detect_mood(mood_image):
     This function uses color detection to identify the mood (green, cyan, yellow, red).
     """
     if mood_image is None or mood_image.size == 0:
-        print("Empty mood image detected. Skipping color detection.")
         return None
 
     hsv_image = cv2.cvtColor(mood_image, cv2.COLOR_BGR2HSV)
@@ -297,33 +293,7 @@ def detect_mood(mood_image):
     
     return "unknown"
 
-def is_valid_player_name(text):
-    print("Is it valid?", text)
 
-    """Check if the detected text is a valid player name."""
-    # Strip leading and trailing whitespaces
-    text = text.strip()
-
-    # Exclude names that are digits or contain only symbols/numbers
-    if text.isdigit() or any(char in text for char in '+0123456789'):
-        return False
-
-    # Require that the name has at least two characters
-    if len(text) < 2:
-        return False
-
-    # Define allowed non-alphabetic characters in names
-    allowed_chars = {"'", "-", "."}
-
-    # Check that each character is either alphabetic, a space, or in the allowed set
-    if not all(char.isalpha() or char.isspace() or char in allowed_chars for char in text):
-        return False
-
-    # Ensure no two special characters are next to each other (e.g., `O'-Connor` or `Dr..`)
-    if any(text[i] in allowed_chars and text[i + 1] in allowed_chars for i in range(len(text) - 1)):
-        return False
-
-    return text  # Return the cleaned player name if valid
 
 def preprocess_player_form_image(image):
 
