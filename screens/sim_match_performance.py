@@ -8,7 +8,7 @@ import numpy as np
 
 from crop import crop_area
 from ocr import paddleocr, parse_ocr
-from player_name import is_valid_player_name
+from player_name import clean_player_name, is_valid_player_name
 from save_image import save_image
 
 DEBUG = True
@@ -63,7 +63,7 @@ def detect_team_side(ocr_data, team_name, image_width):
         str: 'home' if the team is on the left side, 'away' if on the right side, or None if not found.
     """
     team_name_lower = team_name.lower()  # Normalize the team name for case-insensitive matching
-    image_midpoint = image_width // 2  # Dynamically calculate the midpoint of the image
+    image_midpoint = image_width // 2 
 
     for bbox, text, _ in parse_ocr(ocr_data):
         text_lower = text.lower()
@@ -71,7 +71,6 @@ def detect_team_side(ocr_data, team_name, image_width):
         # Use fuzzy matching to find the team name in the OCR output
         match = difflib.get_close_matches(text_lower, [team_name_lower], cutoff=0.7)
         if match:
-            # Extract the X-coordinate of the bounding box (assuming the first value is the top-left corner)
             x_min = bbox[0][0]
 
             # Determine if the team is on the left or right side based on the X-coordinate
@@ -98,18 +97,17 @@ def find_anchors(ocr_data, team_side, image_width):
                - bottom_y: The maximum Y-coordinate (bottom edge) of the 'Starting 11' or 'Bench' bounding box.
         None: If the anchors are not found.
     """
-    image_midpoint = image_width // 2  # Dynamically calculate the midpoint of the image
+    image_midpoint = image_width // 2 
     
     starting_box = None
     bench_box = None
 
     # Define possible variations of 'Starting 11' and 'Bench' using fuzzy matching terms
-    starting_variants = ['starting 11', 'starting11', 'starting lineup', 'starting']
-    bench_variants = ['bench', 'substitutes']
+    starting_variants = ['starting 11', 'starting11', 'starting ll', 'starting' 'starting il']
+    bench_variants = ['bench', 'bencl', 'bencll', 'benchi', 'benchl', 'bench1', 'benchil']
 
-    # Loop through the OCR data using the helper function
     for bbox, text, _ in parse_ocr(ocr_data):
-        x_min = bbox[0][0]  # X-coordinate of the top-left corner of the bounding box
+        x_min = bbox[0][0] 
         text_lower = text.lower()
 
         # Fuzzy match the text against possible variants
@@ -176,6 +174,7 @@ def extract_player_data(ocr_data, image, team_side):
     
     Parameters:
         ocr_data (list): The OCR result from the cropped image containing players.
+        image (np.array): The cropped image containing only the team's players.
         team_side (str): Either 'home' or 'away', indicating how to interpret the OCR layout.
     
     Returns:
@@ -255,21 +254,7 @@ def extract_player_data(ocr_data, image, team_side):
 
     return player_data
 
-def clean_player_name(text):
-    """
-    Clean the player name by removing digits, carets, and unwanted characters,
-    while keeping valid symbols like hyphens, apostrophes, and dots.
-    
-    Parameters:
-        text (str): The raw OCR text.
-    
-    Returns:
-        str: The cleaned player name.
-    """
-    # Remove digits and carets, but keep valid symbols (letters, spaces, hyphens, apostrophes, dots)
-    cleaned_text = re.sub(r'[^\w\s\'\.\-]', '', text)  # Retain letters, spaces, hyphens, apostrophes, and dots
-    cleaned_text = re.sub(r'\d+', '', cleaned_text)  # Remove digits
-    return cleaned_text.strip()  # Strip leading/trailing spaces
+
 
 def check_for_scored_goal(image, player_box, team_side, player_name):
     """
@@ -326,7 +311,8 @@ def check_for_scored_goal(image, player_box, team_side, player_name):
 
 def check_for_substitution(image, player_box, team_side, player_name, is_captain):
     """
-    Check if the player was involved in a substitution based on the presence of green (sub) or red (benched) caret icon.
+    Check if the player was involved in a substitution based on the presence of green (sub) caret icon
+    We don't actually check for an icon, we just count the color pixels in the area where the icon would be.
     
     Parameters:
         image (np.array): The full image in which the player data exists.

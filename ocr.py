@@ -46,7 +46,7 @@ def annotate_ocr_results(image, folder, ocr_results):
                           (0, 0, 255), 2)  # Red bounding box
 
     # Save the annotated image
-    cv2.imwrite(os.path.join(folder, f"annotated_pre_match.png"), image)
+    cv2.imwrite(os.path.join(folder, f"annotated_image.png"), image)
 
 def paddleocr(image):
     ocr_result = ocr.ocr(image)

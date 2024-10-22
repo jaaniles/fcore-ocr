@@ -1,3 +1,4 @@
+import pprint
 import signal
 import time
 import win32api # type: ignore
@@ -73,7 +74,7 @@ def start_main_process(selected_team, overlay):
                     overlay.show("Match report generated. Match complete.", duration=5)
                     pre_match_data = None  
 
-                    print(player_performance)
+                    pprint.pprint(player_performance)
 
                 else:
                     overlay.show("Unexpected screen detected. Please take the correct screenshot.", duration=5)

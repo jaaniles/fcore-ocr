@@ -29,7 +29,7 @@ def is_match_facts_screen(ocr_output):
     Looks for terms like 'Possession %', 'Shots', or 'Pass Accuracy %'.
     """
 
-    keywords = ["Possession %", "Shots", "Pass Accuracy %"]
+    keywords = ["Match Facts", "Trainer", "Team Management"]
     failableKeywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
 
     for word in failableKeywords:
