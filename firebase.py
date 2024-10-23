@@ -5,13 +5,13 @@ import pyrebase
 # Initialize Pyrebase for Firebase Authentication (Client SDK)
 def initialize_pyrebase():
     firebase_config = {
-        "apiKey": "AIzaSyDUVn-gRRBTYmmyOAGjxQYJafPCc3uk7Jg",
-        "authDomain": "fcore-1337.firebaseapp.com",
-        "projectId": "fcore-1337",
-        "storageBucket": "fcore-1337.appspot.com",
-        "messagingSenderId": "40848952203",
-        "appId": "1:40848952203:web:74cf4a7e254a2e6160bd8e",
-        "databaseURL": "https://fcore-1337.firebaseio.com"
+        "apiKey": "",
+        "authDomain": "",
+        "projectId": "",
+        "storageBucket": "",
+        "messagingSenderId": "",
+        "appId": "",
+        "databaseURL": ""
     }
     firebase = pyrebase.initialize_app(firebase_config)
     return firebase
