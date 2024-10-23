@@ -8,3 +8,4 @@ images/
 credentials.json
 local_cache/
 service_account.json
+firebase_config.json
