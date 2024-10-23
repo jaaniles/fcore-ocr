@@ -12,14 +12,14 @@ DEBUG = True
 FOLDER = './images/sim_match_facts'
 os.makedirs(FOLDER, exist_ok=True)
 
-OUR_TEAM = "Heidenhei"
-
-def process_sim_match_facts(screenshot_path):
+async def process_sim_match_facts(screenshot_path, ocr, team):
     """
     Main function that processes match facts, returning relevant data.
     """
+    our_team_name = team['teamName']
+
     image = cv2.imread(screenshot_path)
-    result = paddleocr(image)
+    result = await paddleocr(image, ocr)
 
     # Step 1: Process penalties
     penalties = process_penalties(result)
@@ -32,8 +32,8 @@ def process_sim_match_facts(screenshot_path):
     home_team, away_team = extract_teams(result)
 
     # Step 4: Determine our team and relevant stats
-    our_team, their_team = determine_our_team(home_team, away_team, OUR_TEAM)
-    stats = extract_stats(result, score_bbox, image)
+    our_team, their_team = determine_our_team(home_team, away_team, our_team_name)
+    stats = await extract_stats(result, score_bbox, image, ocr)
 
     # Step 5: Determine match result, including penalties
     winner, home_score, away_score, is_draw, penalties = determine_match_result(score, penalties)
@@ -116,7 +116,7 @@ def determine_our_team(home_team, away_team, our_team):
     else:
         raise ValueError(f"Our team '{our_team}' could not be matched to either '{home_team}' or '{away_team}'.")
 
-def extract_stats(ocr_data, score_bbox, image):
+async def extract_stats(ocr_data, score_bbox, image, ocr):
     """
     Extract statistics values for keywords like 'Possession %', 'Shots', and 'Chances' from an OCR-processed image.
     
@@ -180,7 +180,7 @@ def extract_stats(ocr_data, score_bbox, image):
                 cropped_area = image[y_min:y_max, x_min:x_max]
 
                 # Step 7: Run OCR on the cropped image to extract the value (start with paddleOCR)
-                ocr_result = paddleocr(cropped_area)
+                ocr_result = await paddleocr(cropped_area, ocr)
                 value = extract_number_value(ocr_result)
 
                 # Step 8: If no value is found, try easyOCR
@@ -190,7 +190,7 @@ def extract_stats(ocr_data, score_bbox, image):
                 # Step 9: If still no value, apply grayscale processing and retry with paddleOCR
                 if not value:
                     processed_cropped_area = grayscale_image(cropped_area)
-                    result = paddleocr(processed_cropped_area)
+                    result = await paddleocr(processed_cropped_area)
                     value = extract_number_value(result)
 
                 # Step 10: Try easyOCR again on the grayscale image

@@ -1,135 +1,134 @@
-import difflib
 import os
 import re
+from ocr import extract_text_from_image
+from positions import is_position_found, positions
 
-from ocr import extract_text_from_image, paddleocr
+# Pre-compiled regex for rating detection
+rating_pattern = re.compile(r'\b\d\.\d\b')
 
-
-def fuzzy_match(ocr_output, keyword, cutoff=0.8):
+def preprocess_ocr_output(ocr_output):
     """
-    Check if a keyword is present in the OCR output using fuzzy matching.
+    Preprocess the OCR output by lowercasing and splitting into words.
     
     Parameters:
         ocr_output (str): The OCR output text.
-        keyword (str): The keyword to search for.
-        cutoff (float): The matching accuracy threshold (0 to 1).
         
     Returns:
-        bool: True if the keyword is found with sufficient similarity, False otherwise.
+        set: A set of lowercased words from the OCR output.
     """
-    return difflib.get_close_matches(keyword, ocr_output.split(), cutoff=cutoff)
+    return set(ocr_output.lower().split())
 
-def is_match_facts_screen(ocr_output):
+def check_keywords(ocr_output_words, required_keywords, optional_keywords=None, failable_keywords=None):
+    """
+    Generalized helper to check if OCR output contains required, optional, and failable keywords.
+    
+    Parameters:
+        ocr_output_words (set): Preprocessed set of words from the OCR output.
+        required_keywords (set): Keywords that must be present.
+        optional_keywords (set): Optional keywords that, if present, return True.
+        failable_keywords (set): Keywords that, if present, fail the check and return False.
+        
+    Returns:
+        bool: True if the screen matches the expected keywords, False otherwise.
+    """
+    # Check for failable keywords
+    if failable_keywords and any(word in ocr_output_words for word in failable_keywords):
+        return False
+
+    # Check if all required keywords are present
+    if not all(word in ocr_output_words for word in required_keywords):
+        return False
+
+    # If optional keywords are present, return True
+    if optional_keywords and any(word in ocr_output_words for word in optional_keywords):
+        return True
+
+    return True
+
+def is_match_facts_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of a 'Match Facts' screen.
     """
-    all_keywords = ["Match Facts"]
-    any_keywords = ["Shots", "Passes Attempted", "Pass Accuracy %", "Tackles", "Possession"]
-    failable_keywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
+    required_keywords = {"Performance", "Match Facts"}
+    optional_keywords = {"shots", "passes", "attempted", "accuracy", "tackles", "possession"}
+    failable_keywords = {"fitness", "ratings", "stats", "gameplan"}
+    
+    positions_found = is_position_found(ocr_output_words)
 
-    # Step 1: Check if any of the failable keywords are present, return False if found
-    for word in failable_keywords:
-        if fuzzy_match(ocr_output, word):
-            return False
+    if positions_found:
+        return False
 
-    # Step 2: Check if all the mandatory keywords are present, return False if any are missing
-    for word in all_keywords:
-        if not fuzzy_match(ocr_output, word):
-            return False
+    return check_keywords(ocr_output_words, required_keywords, optional_keywords, failable_keywords)
 
-    # Step 3: Check if any of the optional keywords are present, return True if found
-    for word in any_keywords:
-        if fuzzy_match(ocr_output, word):
-            return True
-
-    # If no matches found for optional keywords, return False
-    return False
-
-def is_performance_screen(ocr_output):
+def is_performance_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of a 'Performance' screen.
     Looks for player ratings (e.g., '6.1', '7.5') or player positions (e.g., 'RB', 'LCM').
     """
-    failable_keywords = ["Fitness", "Ratings", "Stats", "Gameplan", "Overall Position", "Summary"]
+    failable_keywords = {"fitness", "ratings", "stats", "gameplan", "overall", "summary"}
     
-    for word in failable_keywords:
-        if fuzzy_match(ocr_output, word):
-            return False
+    # Check if any failable keyword exists
+    if any(word in ocr_output_words for word in failable_keywords):
+        return False
+    
+    print(ocr_output_words)
 
-    rating_pattern = r'\b\d\.\d\b'  # Regular expression to find ratings like '6.1', '7.5'
-    ratings_found = re.findall(rating_pattern, ocr_output)
+    # Find ratings using pre-compiled regex
+    ratings_found = rating_pattern.findall(" ".join(ocr_output_words))
     
-    positions = ["RB", "LCM", "RM", "CB", "RW", "LW", "ST", "CM", "GK"]
-    positions_found = False
-    for position in positions:
-        if fuzzy_match(ocr_output, position):
-            positions_found = True
+    # Check for player positions
+    # Check for player positions
+    positions_found = is_position_found(ocr_output_words)
+
+    print(ratings_found, positions_found)
 
     return bool(ratings_found) and positions_found
 
-def is_performance_extended_screen(ocr_output):
+def is_performance_extended_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of an 'Extended Performance' screen.
     """
+    required_keywords = {"player", "performance", "summary", "overall", "position"}
+    failable_keywords = {"fitness", "ratings", "stats", "gameplan"}
+    
+    return check_keywords(ocr_output_words, required_keywords, failable_keywords=failable_keywords)
 
-    # Keywords that must be present
-    all_keywords = ["Player Performance", "Summary", "OVERALL POSITION"]
-    # Keywords that will fail the ckec
-    failableKeywords = ["Fitness", "Ratings", "Stats", "Gameplan"]
-    for word in failableKeywords:
-        if word in ocr_output:
-            return False
-
-    # Check if all the mandatory keywords are present, return False if any are missing
-    for word in all_keywords:
-        if word not in ocr_output:
-            return False
-        
-    return True
-
-def is_sim_match_facts_screen(ocr_output):
+def is_sim_match_facts_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of a 'Sim Match Facts' screen.
     """
+    print(ocr_output_words)
 
-    # All of these words need to be present    
-    keywords = ["Fitness", "Ratings", "Stats", "Gameplan", "Possession", "Shots", "Chances"]
-    # Convert the OCR output to a single string for easy search
+    required_keywords = {"fitness", "ratings", "stats", "gameplan", "possession", "shots", "chances"}
+    
+    return check_keywords(ocr_output_words, required_keywords)
 
-    # Check if each keyword from the combined list is in the OCR text
-    for word in keywords:
-        if word not in ocr_output:
-            return False
-
-    return True
-
-
-def is_sim_match_performance_screen(ocr_output):
+def is_sim_match_performance_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of a 'Sim Match Player Performance' screen.
     """
-    # All of these words need to be present    
-    keywords = ["Fitness", "Ratings", "Stats", "Gameplan", "Starting 11", "Bench"]
+    required_keywords = {"fitness", "ratings", "stats", "gameplan", "starting", "bench"}
+    
+    return check_keywords(ocr_output_words, required_keywords)
 
-    # Check if each keyword from the combined list is in the OCR text
-    for word in keywords:
-        if word not in ocr_output:
-            return False
-
-    return True
-
-def is_pre_match_screen(ocr_output):
+def is_pre_match_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of a 'Pre-Match' screen.
-    Add specific terms or indicators that appear in the pre-match screen.
     """
-    # Placeholder check: Replace with actual indicators specific to pre-match
-    if "Play Match" and "Tactical View" and "Play Highlights" and "Customise" in ocr_output:
-        return True
-    return False
+    # Replace with actual indicators specific to the pre-match screen
+    required_keywords = {"play", "match", "tactical", "view", "highlights", "customise"}
+    
+    return check_keywords(ocr_output_words, required_keywords)
 
+def is_match_facts_extended_screen(ocr_output_words):
+    """
+    Checks if the screenshot contains indicators of an 'Extended Match Facts' screen.
+    """
+    required_keywords = {"summary", "possession", "shooting", "passing", "defending", "events"}
 
-def detect_screen_type(image_path):
+    return check_keywords(ocr_output_words, required_keywords)
+
+async def detect_screen_type(image_path, ocr):
     """
     Detects the type of screen in the screenshot.
     Returns the detected screen type as a string or 'unknown'.
@@ -137,21 +136,24 @@ def detect_screen_type(image_path):
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"{image_path} does not exist.")
 
-    ocr_output = extract_text_from_image(image_path)
+    ocr_output = await extract_text_from_image(image_path, ocr)
+    
+    # Preprocess OCR output to a set of lowercased words
+    ocr_output_words = preprocess_ocr_output(ocr_output)
 
-    print(ocr_output)
-
-    if is_match_facts_screen(ocr_output):
+    if is_match_facts_screen(ocr_output_words):
         return "match_facts"
-    elif is_performance_screen(ocr_output):
+    elif is_performance_screen(ocr_output_words):
         return "player_performance"
-    elif is_sim_match_facts_screen(ocr_output):
+    elif is_sim_match_facts_screen(ocr_output_words):
         return "sim_match_facts"
-    elif is_sim_match_performance_screen(ocr_output):
+    elif is_sim_match_performance_screen(ocr_output_words):
         return "sim_match_performance"
-    elif is_pre_match_screen(ocr_output):
+    elif is_pre_match_screen(ocr_output_words):
         return "pre_match"
-    elif is_performance_extended_screen(ocr_output):
+    elif is_performance_extended_screen(ocr_output_words):
         return "player_performance_extended"
+    elif is_match_facts_extended_screen(ocr_output_words):
+        return "match_facts_extended"
     else:
         return "unknown"

@@ -10,7 +10,7 @@ DEBUG = True
 FOLDER = './images/match_facts'
 os.makedirs(FOLDER, exist_ok=True)
 
-def process_match_facts(screenshot_path):
+async def process_match_facts(screenshot_path, ocr):
     image = cv2.imread(screenshot_path)
 
     # Co-ordinates for cropping the stats
@@ -31,19 +31,19 @@ def process_match_facts(screenshot_path):
     cropped_tackles = crop_image(image, tackles_stats_coords)
     
     # Apply OCR to each cropped area
-    match_score_result = paddleocr(cropped_match_score)
-    possession_stats_result = paddleocr(cropped_possession)
-    shots_result = paddleocr(cropped_shots)
-    passes_result = paddleocr(cropped_passes)
-    accuracy_result = paddleocr(cropped_accuracy)
-    tackles_result = paddleocr(cropped_tackles)
+    match_score_result = await paddleocr(cropped_match_score, ocr)
+    possession_stats_result = await paddleocr(cropped_possession, ocr)
+    shots_result = await paddleocr(cropped_shots, ocr)
+    passes_result = await paddleocr(cropped_passes, ocr)
+    accuracy_result = await paddleocr(cropped_accuracy, ocr)
+    tackles_result = await paddleocr(cropped_tackles, ocr)
 
     home, away = process_match_score(match_score_result)
     home_possession, away_possession = process_possession_stats(possession_stats_result)
-    home_shots, away_shots = extract_value(shots_result, "Shots", cropped_shots)
-    home_passes, away_passes = extract_value(passes_result, "Passes", cropped_passes)
-    home_accuracy, away_accuracy = extract_value(accuracy_result, "Accuracy", cropped_accuracy)
-    home_tackles, away_tackles = extract_value(tackles_result, "Tackles", cropped_tackles)
+    home_shots, away_shots = await extract_value(shots_result, "Shots", cropped_shots)
+    home_passes, away_passes = await extract_value(passes_result, "Passes", cropped_passes)
+    home_accuracy, away_accuracy = await extract_value(accuracy_result, "Accuracy", cropped_accuracy)
+    home_tackles, away_tackles = await extract_value(tackles_result, "Tackles", cropped_tackles)
     home_team = home['team_name']
     away_team = away['team_name']
     home_score = home['score']
@@ -77,7 +77,7 @@ def calculate_center(bounding_box):
     return center_x, center_y
 
 # Main function to extract values
-def extract_value(ocr_result, keyword, image):
+async def extract_value(ocr_result, keyword, image):
     TRAVERSE = 505
     CROP_WIDTH = 175
     CROP_HEIGHT = 70
@@ -112,10 +112,10 @@ def extract_value(ocr_result, keyword, image):
                         right_image_path = os.path.join(FOLDER, f"away_{keyword}.png")
                         cv2.imwrite(right_image_path, cropped_right)
 
-                    left_ocr_result = paddleocr(cropped_left) 
+                    left_ocr_result = await paddleocr(cropped_left) 
                     if not left_ocr_result or left_ocr_result == [None] or len(left_ocr_result) == 0:
                         left_ocr_result = []
-                    right_ocr_result = paddleocr(cropped_right)
+                    right_ocr_result = await paddleocr(cropped_right)
                     if not right_ocr_result or right_ocr_result == [None] or len(right_ocr_result) == 0:
                         right_ocr_result = []
                     

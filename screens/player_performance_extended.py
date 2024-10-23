@@ -15,13 +15,13 @@ DEBUG = True
 FOLDER = './images/player_performance_extended'
 os.makedirs(FOLDER, exist_ok=True)
 
-def process_player_performance_extended(screenshot_path):
+async def process_player_performance_extended(screenshot_path, ocr):
     """Process the player performance extended screen to extract data."""
     image = cv2.imread(screenshot_path)
     cropped_image = crop_performance_area(image)
     grayscale = grayscale_image(cropped_image)
 
-    result = paddleocr(grayscale)
+    result = await paddleocr(grayscale, ocr)
     annotate_ocr_results(grayscale, FOLDER, result)
     print(result)
 
@@ -31,21 +31,37 @@ def process_player_performance_extended(screenshot_path):
 def extract_player_data(ocr_results, image):
     ocr_results_sorted = sorted(ocr_results, key=lambda x: (x[0][0][1], x[0][0][0]))
 
+    # Variables to store x-coordinates of the MR, G, and AST columns
+    mr_x, g_x, ast_x = None, None, None
+
     # List to store the extracted player data
     player_data = []
     mvp_found = False
 
+    # Step 1: Find the x-coordinates of MR, G, AST labels
+    for bbox, text, confidence in parse_ocr(ocr_results_sorted):
+        if text == "MR":
+            mr_x = bbox[0][0]  # Store the x-coordinate of the "MR" column
+        elif text == "G":
+            g_x = bbox[0][0]  # Store the x-coordinate of the "G" (Goals) column
+        elif text == "AST":
+            ast_x = bbox[0][0]  # Store the x-coordinate of the "AST" (Assists) column
+
+        # Break early once we've found all the labels
+        if mr_x and g_x and ast_x:
+            break
+
     # Variables to temporarily hold data for each player
     current_player = None
 
-    # Iterate through the OCR results
+    # Step 2: Process player data based on the x-coordinates of MR, G, and AST
     for bbox, text, confidence in parse_ocr(ocr_results_sorted):
         if confidence < 0.75:
             continue
 
         # Check for positions (start of a player block)
         if text in ['LS', 'RS', 'LM', 'RM', 'LB', 'LCB', 'RCB', 'RB', "CDM", 'GK', 'CAM', 'RCM', 'LCM', "SUB"]:
-            # If we're already parsing a player, save the previous player's data
+            # Save the previous player's data before starting a new player block
             if current_player:
                 player_data.append(current_player)
 
@@ -65,38 +81,54 @@ def extract_player_data(ocr_results, image):
 
             # Check for MVP if not already found
             if not mvp_found:
-                is_mvp = check_for_mvp(image, bbox, current_player["name"], search_x_offset=46, folder=FOLDER)
+                is_mvp = check_for_mvp(image, bbox, current_player["name"])
                 if is_mvp:
                     current_player["mvp"] = True
-                    mvp_found = True  # Stop looking for MVP once found
+                    mvp_found = True
 
-        # Match Rating (MR)
-        elif current_player and isinstance(current_player["rating"], float) and current_player["rating"] == 0.0:
+        # Numbers (rating, goals, assists) follow after the name
+        elif current_player:
             try:
-                current_player["rating"] = float(text)
-            except ValueError:
-                current_player["rating"] = None
-                pass  # Ignore if the text is not a valid float
+                # Convert the text into a number (either float for rating or int for goals/assists)
+                num = float(text) if '.' in text else int(text)
 
-        # Goals (G)
-        elif current_player and isinstance(current_player["goals"], int) and current_player["goals"] == 0:
-            try:
-                current_player["goals"] = int(text)
-            except ValueError:
-                pass  # Ignore if the text is not a valid integer
+                # Use the x-coordinate of the number to assign it to the correct stat
+                stat_x = bbox[0][0]  # Get the x-coordinate of the current stat
 
-        # Assists (AST)
-        elif current_player and isinstance(current_player["assists"], int) and current_player["assists"] == 0:
-            try:
-                current_player["assists"] = int(text)
-            except ValueError:
-                pass  # Ignore if the text is not a valid integer
+                # Compare x-coordinate to MR, G, and AST columns
+                if abs(stat_x - mr_x) < abs(stat_x - g_x) and abs(stat_x - mr_x) < abs(stat_x - ast_x):
+                    current_player["rating"] = num  # It's the rating (MR)
+                elif abs(stat_x - g_x) < abs(stat_x - ast_x):
+                    current_player["goals"] = num  # It's the goals (G)
+                else:
+                    current_player["assists"] = num  # It's the assists (AST)
 
-    # Append the last player data if not added
+            except ValueError:
+                pass  # If it's not a number, ignore
+
+    # Append the last player's data
     if current_player:
         player_data.append(current_player)
 
     return player_data
+
+def is_nearby(value_bbox, label_bbox, tolerance=50):
+    """
+    Check if the value is close enough to a label (such as 'G' or 'AST') based on their bounding boxes.
+    
+    Parameters:
+        value_bbox (list): Bounding box of the value (number).
+        label_bbox (list): Bounding box of the label (such as 'G' or 'AST').
+        tolerance (int): The maximum allowed distance between the value and the label.
+    
+    Returns:
+        bool: True if the value is close to the label, False otherwise.
+    """
+    # Compare the x-coordinates of the value and label bounding boxes
+    value_x_min = value_bbox[0][0]
+    label_x_min = label_bbox[0][0]
+    
+    return abs(value_x_min - label_x_min) <= tolerance
 
 def crop_performance_area(image):
     """Crop the image to focus on the relevant area with player names and ratings and stats."""

@@ -1,19 +1,32 @@
+from functools import partial
 import logging
+import asyncio
 import os
 import cv2
-import easyocr
-from paddleocr import PaddleOCR
 
-reader = easyocr.Reader(['en'], gpu=True)
-ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=True)
+from timed_import import timed_import
+PaddleOCR = timed_import('paddleocr', 'PaddleOCR')
 
+#reader = easyocr.Reader(['en'], gpu=True)
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 
-def extract_text_from_image(image_path):
+async def initialize_paddleocr():
+    """Initialize PaddleOCR asynchronously"""
+    print("Initializing PaddleOCR...")
+    loop = asyncio.get_event_loop()
+
+    ocr_partial = partial(PaddleOCR, use_angle_cls=True, lang='en', use_gpu=True)
+    ocr_instance = await loop.run_in_executor(None, ocr_partial)
+
+    print("PaddleOCR initialized.")
+    return ocr_instance
+
+async def extract_text_from_image(image_path, ocr):
     """
     Extracts text from the given image using PaddleOCR.
     """
-    result = paddleocr(image_path)
+    ocr_instace = await ocr
+    result = ocr_instace.ocr(image_path)
 
     if result is None:
         return []
@@ -55,6 +68,7 @@ def annotate_ocr_results(image, folder, ocr_results):
     """
     Annotate the image with bounding boxes around OCR results and save the annotated image.
     """
+
     # Step 4: Annotate the image with bounding boxes around recognized text
     for result in ocr_results:
         for line in result:
@@ -68,8 +82,10 @@ def annotate_ocr_results(image, folder, ocr_results):
     # Save the annotated image
     cv2.imwrite(os.path.join(folder, f"annotated_image.png"), image)
 
-def paddleocr(image):
-    ocr_result = ocr.ocr(image)
+async def paddleocr(image, ocr):
+    ocr_instance = await ocr
+    ocr_result = ocr_instance.ocr(image)
+    
     return ocr_result
 
 def easyocr_number(image):
@@ -83,7 +99,11 @@ def easyocr_number(image):
         str: The extracted number or the letter 'O' from the OCR output. 
         Returns None if no valid number or 'O' is found.
     """
+    import easyocr 
+    reader = easyocr.Reader(['en'], gpu=True)
+
     ocr_result = reader.readtext(image)
+    ocr_result = []
 
     for result in ocr_result:
         # Each result consists of [bounding box, text, confidence]

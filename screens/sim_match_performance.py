@@ -15,18 +15,18 @@ DEBUG = True
 FOLDER = './images/sim_match_performance'
 os.makedirs(FOLDER, exist_ok=True)
 
-TEAM_NAME = "Arsenal"
+async def process_sim_match_performance(screenshot_path, ocr, team):
+    team_name = team['teamName']
 
-def process_sim_match_performance(screenshot_path):
     image = cv2.imread(screenshot_path)
     # Step 1: Perform OCR on the full image using paddleocr
-    ocr_data = paddleocr(image)
+    ocr_data = await paddleocr(image, ocr)
 
     # Step 2: Detect the team side (home or away)
     _, image_width, _ = image.shape  # Get image dimensions
-    team_side = detect_team_side(ocr_data, TEAM_NAME, image_width)
+    team_side = detect_team_side(ocr_data, team_name, image_width)
     if not team_side:
-        raise ValueError(f"Team '{TEAM_NAME}' not found in the OCR output")
+        raise ValueError(f"Team '{team_name}' not found in the OCR output")
     
     # Step 3: Find the horizontal midpoint between 'Starting 11' and 'Bench' on the correct side
     anchor_result = find_anchors(ocr_data, team_side, image_width)
@@ -41,7 +41,7 @@ def process_sim_match_performance(screenshot_path):
     cv2.imwrite(cropped_filename, cropped_image)
 
     # Step 5: Re-run OCR on the cropped image to get player data
-    cropped_ocr_data = paddleocr(cropped_image)
+    cropped_ocr_data = await paddleocr(cropped_image, ocr)
 
     # Step 6: Extract player information (name, rating, is_sub, scored_goal)
     player_data = extract_player_data(cropped_ocr_data, cropped_image, team_side)

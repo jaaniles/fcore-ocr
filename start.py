@@ -1,39 +1,17 @@
-# auto_reload.py
-
+import os
 import sys
-import subprocess
-import time
-from watchdog.observers import Observer
-from watchdog.events import PatternMatchingEventHandler
+from watchfiles import run_process
 
-class ReloadHandler(PatternMatchingEventHandler):
-    patterns = ["*.py"]
+def restart_program():
+    """Restarts the program when changes are detected."""
+    print("Python code changes detected. Restarting the program...")
+    os.execv(sys.executable, [sys.executable] + ['main.py'])  # Restart the main.py script
 
-    def __init__(self, process):
-        super().__init__()
-        self.process = process
-
-    def on_modified(self, event):
-        print(f"{event.src_path} has been modified. Reloading...")
-        self.process.kill()
-        self.process = subprocess.Popen([sys.executable, 'run.py'])
-
-def start_watcher():
-    process = subprocess.Popen([sys.executable, 'run.py'])
-
-    event_handler = ReloadHandler(process)
-    observer = Observer()
-    observer.schedule(event_handler, path='.', recursive=True)
-    observer.start()
-
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Stopping watcher.")
-        observer.stop()
-        process.kill()
-    observer.join()
+def watch_filter(change, path):
+    """Only watch .py files."""
+    # Ensure that `path` is a .py file and return True only for .py files
+    return path.endswith('.py')
 
 if __name__ == "__main__":
-    start_watcher()
+    # Monitor the current directory, but only restart on .py file changes
+    run_process('.', target=restart_program, watch_filter=watch_filter, recursive=True)

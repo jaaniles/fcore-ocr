@@ -5,3 +5,6 @@ __pycache__/
 venv/
 screenshots/
 images/
+credentials.json
+local_cache/
+service_account.json

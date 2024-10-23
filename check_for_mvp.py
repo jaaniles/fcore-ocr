@@ -56,4 +56,4 @@ def check_for_mvp(image, last_name_bbox, player_name, search_x_offset=50, folder
     # Calculate the percentage of yellow pixels
     yellow_percentage = (cv2.countNonZero(mask) / mask.size) * 100
 
-    return yellow_percentage > 75  # Return True if more than 75% of the area is yellow/gold
+    return yellow_percentage > 50  # Return True if more than 75% of the area is yellow/gold
