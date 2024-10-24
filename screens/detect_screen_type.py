@@ -1,7 +1,12 @@
 import os
 import re
+
+import cv2
+from image_processing import upscale_image
 from ocr import extract_text_from_image
-from positions import is_position_found, positions
+from positions import is_position_found
+from screens.check_is_regular_match import check_is_regular_match
+from screens.screen_types import MATCH_FACTS, PLAYER_PERFORMANCE, PLAYER_PERFORMANCE_EXTENDED, PRE_MATCH, SIM_MATCH_FACTS, SIM_MATCH_PERFORMANCE, SIM_MATCH_PERFORMANCE_BENCH, SIM_PRE_MATCH
 
 # Pre-compiled regex for rating detection
 rating_pattern = re.compile(r'\b\d\.\d\b')
@@ -49,7 +54,7 @@ def is_match_facts_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of a 'Match Facts' screen.
     """
-    required_keywords = {"Performance", "Match Facts"}
+    required_keywords = {"performance", "highlighter"}
     optional_keywords = {"shots", "passes", "attempted", "accuracy", "tackles", "possession"}
     failable_keywords = {"fitness", "ratings", "stats", "gameplan"}
     
@@ -128,32 +133,49 @@ def is_match_facts_extended_screen(ocr_output_words):
 
     return check_keywords(ocr_output_words, required_keywords)
 
-async def detect_screen_type(image_path, ocr):
+async def detect_screen_type(screenshot_path, ocr_task):
     """
     Detects the type of screen in the screenshot.
     Returns the detected screen type as a string or 'unknown'.
     """
-    if not os.path.exists(image_path):
-        raise FileNotFoundError(f"{image_path} does not exist.")
+    if not os.path.exists(screenshot_path):
+        raise FileNotFoundError(f"{screenshot_path} does not exist.")
 
-    ocr_output = await extract_text_from_image(image_path, ocr)
+    ocr_output = await extract_text_from_image(screenshot_path, ocr_task)
     
     # Preprocess OCR output to a set of lowercased words
     ocr_output_words = preprocess_ocr_output(ocr_output)
 
     if is_match_facts_screen(ocr_output_words):
-        return "match_facts"
+        return MATCH_FACTS
+    
     elif is_performance_screen(ocr_output_words):
-        return "player_performance"
+        return PLAYER_PERFORMANCE
+    
     elif is_sim_match_facts_screen(ocr_output_words):
-        return "sim_match_facts"
+        return SIM_MATCH_FACTS
+    
     elif is_sim_match_performance_screen(ocr_output_words):
-        return "sim_match_performance"
+        is_bench_view = "n/a" in ocr_output_words
+
+        if is_bench_view:
+            return SIM_MATCH_PERFORMANCE
+        else:
+            return SIM_MATCH_PERFORMANCE_BENCH
+    
+    # Check if user is intending to play the match regularly or simulate it
     elif is_pre_match_screen(ocr_output_words):
-        return "pre_match"
+        image = cv2.imread(screenshot_path)
+        upscaled_image = upscale_image(image)
+
+        is_regular_match = await check_is_regular_match(upscaled_image, ocr_task)
+
+        if is_regular_match:
+            return PRE_MATCH
+        else:
+            return SIM_PRE_MATCH
+
     elif is_performance_extended_screen(ocr_output_words):
-        return "player_performance_extended"
-    elif is_match_facts_extended_screen(ocr_output_words):
-        return "match_facts_extended"
+        return PLAYER_PERFORMANCE_EXTENDED
     else:
         return "unknown"

@@ -1,6 +1,7 @@
 import inquirer
 
 from cache import store_selected_team
+from database import get_user_teams
 
 # Function to select a team from the user's teams
 def select_team(userId, user_teams):
@@ -29,4 +30,14 @@ def select_team(userId, user_teams):
     store_selected_team(userId, selected_team)
 
     print(f"Selected team: {selected_team['teamName']}")
+    return selected_team
+
+def refresh_teams(user_id):
+    print("Refreshing teams...")
+    teams = get_user_teams(user_id)
+    if not teams:
+        print("No teams found.")
+        return None
+    selected_team = select_team(user_id, teams)
+    print(f"Selected team: {selected_team}")
     return selected_team

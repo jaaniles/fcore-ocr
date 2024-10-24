@@ -21,11 +21,11 @@ async def initialize_paddleocr():
     print("PaddleOCR initialized.")
     return ocr_instance
 
-async def extract_text_from_image(image_path, ocr):
+async def extract_text_from_image(image_path, ocr_task):
     """
     Extracts text from the given image using PaddleOCR.
     """
-    ocr_instace = await ocr
+    ocr_instace = await ocr_task
     result = ocr_instace.ocr(image_path)
 
     if result is None:
@@ -82,8 +82,8 @@ def annotate_ocr_results(image, folder, ocr_results):
     # Save the annotated image
     cv2.imwrite(os.path.join(folder, f"annotated_image.png"), image)
 
-async def paddleocr(image, ocr):
-    ocr_instance = await ocr
+async def paddleocr(image, ocr_task):
+    ocr_instance = await ocr_task
     ocr_result = ocr_instance.ocr(image)
     
     return ocr_result
@@ -149,3 +149,24 @@ def parse_ocr(ocr_data):
                 yield bbox, text, confidence
             except (ValueError, TypeError):
                 continue
+
+def find_text_in_ocr(ocr_result, target_text):
+    """
+    Finds specific text from ocr_result. 
+    Ignored case sensitivity.
+    
+    Parameters:
+        ocr_result (list): The OCR result containing groups of OCR items.
+    
+    Yields:
+        tuple: A tuple containing (bbox, text, confidence)
+    """
+
+    if not ocr_result or ocr_result is None or len(ocr_result) == 0:
+        return None
+
+    for bbox, text, confidence in parse_ocr(ocr_result):
+        if text.strip().lower() == target_text.lower():
+            return bbox, text, confidence
+
+    return None

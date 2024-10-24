@@ -12,7 +12,7 @@ DEBUG = True
 FOLDER = './images/sim_match_facts'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_sim_match_facts(screenshot_path, ocr, team):
+async def process_sim_match_facts(screenshot_path, team, ocr):
     """
     Main function that processes match facts, returning relevant data.
     """

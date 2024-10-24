@@ -15,7 +15,7 @@ DEBUG = True
 FOLDER = './images/sim_match_performance'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_sim_match_performance(screenshot_path, ocr, team):
+async def process_sim_match_performance(screenshot_path, team, ocr):
     team_name = team['teamName']
 
     image = cv2.imread(screenshot_path)
@@ -45,8 +45,6 @@ async def process_sim_match_performance(screenshot_path, ocr, team):
 
     # Step 6: Extract player information (name, rating, is_sub, scored_goal)
     player_data = extract_player_data(cropped_ocr_data, cropped_image, team_side)
-
-    pprint.pprint(player_data)
 
     return player_data
 

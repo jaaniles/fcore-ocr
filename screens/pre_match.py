@@ -9,6 +9,7 @@ from crop import crop_area, crop_image
 from image_processing import upscale_image
 from ocr import paddleocr
 from player_name import is_valid_player_name
+from screens.check_is_regular_match import check_is_regular_match
 
 # Allow saving images for debugging purposes
 DEBUG = True
