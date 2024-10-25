@@ -7,3 +7,8 @@ PLAYER_PERFORMANCE_EXTENDED = "player_performance_extended"
 SIM_MATCH_FACTS = "sim_match_facts"
 SIM_MATCH_PERFORMANCE = "sim_match_performance"
 SIM_MATCH_PERFORMANCE_BENCH = "sim_match_performance_bench"
+
+SQUAD_FINANCIAL = "squad_financial"
+SQUAD_STATS = "squad_stats"
+SQUAD_ATTRIBUTES = "squad_attributes"
+

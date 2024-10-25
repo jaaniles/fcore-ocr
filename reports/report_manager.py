@@ -69,6 +69,7 @@ def save_to_cache(report):
 # Add screen data to the report
 def add_screen_data(report, screen_type, screen_data):
     report["screens_data"][screen_type] = screen_data
+    print("Added data to report.", screen_data)
     save_to_cache(report)
 
 # Check if the report is complete (all required screens are captured)

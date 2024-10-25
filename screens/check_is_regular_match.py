@@ -20,8 +20,6 @@ async def check_is_regular_match(image, ocr_task):
         print("Error: could not find anchor for checking match type.")
         return False
     
-    print(bbox)
-
     # The bounding box of the "Play Match" text is stored in `anchor`
     x1, y1 = int(bbox[0][0]), int(bbox[0][1])  # Top-left corner
     x2, y2 = int(bbox[2][0]), int(bbox[2][1])  # Bottom-right corner

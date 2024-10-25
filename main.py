@@ -76,6 +76,8 @@ async def start_main_process(user_id, selected_team, overlay, ocr):
                 overlay.show("Report aborted and deleted.", duration=3)
                 print("Report aborted and deleted.")
 
+                report = load_incomplete_reports(overlay)
+
             await asyncio.sleep(0.1)
 
         except KeyboardInterrupt:
@@ -138,7 +140,6 @@ async def main():
 
             # Select the team after getting the list of teams
             selected_team = select_team(user_id, teams)
-            print("Selected team: ", selected_team)
 
             # Start the main process with the selected team
             await start_main_process(user_id, selected_team, overlay, ocr_startup_task)

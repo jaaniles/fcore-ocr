@@ -95,6 +95,7 @@ def extract_player_data(ocr_data, image):
                     if not mvp_found and last_name_bbox:
                         is_mvp = check_for_mvp(image, last_name_bbox, full_name, search_x_offset=190, folder=FOLDER)
                         if is_mvp:
+                            print(f"Found MVP: {full_name}")
                             mvp_found = True  # Stop checking further once found
 
                     processed_names.add(full_name)

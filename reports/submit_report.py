@@ -1,8 +1,12 @@
 
 def submit_match_report(report):
-    print("SUBMIT!")
+    print("SUBMIT!", report["reportId"])
     print(report)
 
 def submit_sim_match_report(report):
-    print("SUBMIT SIM!")
+    print("SUBMIT SIM!", report["reportId"])
+    print(report)
+
+def submit_squad_report(report):
+    print("SUBMIT SQUAD!", report["reportId"])
     print(report)

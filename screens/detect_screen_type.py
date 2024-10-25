@@ -76,16 +76,12 @@ def is_performance_screen(ocr_output_words):
     if any(word in ocr_output_words for word in failable_keywords):
         return False
     
-    print(ocr_output_words)
-
     # Find ratings using pre-compiled regex
     ratings_found = rating_pattern.findall(" ".join(ocr_output_words))
     
     # Check for player positions
     # Check for player positions
     positions_found = is_position_found(ocr_output_words)
-
-    print(ratings_found, positions_found)
 
     return bool(ratings_found) and positions_found
 
@@ -102,8 +98,6 @@ def is_sim_match_facts_screen(ocr_output_words):
     """
     Checks if the screenshot contains indicators of a 'Sim Match Facts' screen.
     """
-    print(ocr_output_words)
-
     required_keywords = {"fitness", "ratings", "stats", "gameplan", "possession", "shots", "chances"}
     
     return check_keywords(ocr_output_words, required_keywords)
@@ -159,9 +153,9 @@ async def detect_screen_type(screenshot_path, ocr_task):
         is_bench_view = "n/a" in ocr_output_words
 
         if is_bench_view:
-            return SIM_MATCH_PERFORMANCE
-        else:
             return SIM_MATCH_PERFORMANCE_BENCH
+        else:
+            return SIM_MATCH_PERFORMANCE
     
     # Check if user is intending to play the match regularly or simulate it
     elif is_pre_match_screen(ocr_output_words):

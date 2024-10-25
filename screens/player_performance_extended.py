@@ -23,10 +23,11 @@ async def process_player_performance_extended(screenshot_path, ocr):
 
     result = await paddleocr(grayscale, ocr)
     annotate_ocr_results(grayscale, FOLDER, result)
-    print(result)
 
     player_data = extract_player_data(result, cropped_image)
     pprint.pprint(player_data)
+
+    return player_data
 
 def extract_player_data(ocr_results, image):
     ocr_results_sorted = sorted(ocr_results, key=lambda x: (x[0][0][1], x[0][0][0]))

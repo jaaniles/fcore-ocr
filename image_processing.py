@@ -80,8 +80,6 @@ def preprocess(image):
     dark_threshold = 100
     medium_brightness_threshold = 180
 
-    print("AVG BRIGHTNESS", avg_brightness)
-
     if avg_brightness < dark_threshold:
         blurred_image = cv2.GaussianBlur(gray_image, (5, 5), 0)
         _, threshold_image = cv2.threshold(blurred_image, 0, 200, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
