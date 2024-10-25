@@ -3,13 +3,13 @@ import numpy as np
 from ocr import find_text_in_ocr, paddleocr
 
 
-async def check_is_regular_match(image, ocr_task):
+async def check_is_regular_match(image):
     """
     Checks if match is going to be played as a regular match or simulated
     by checking the "Play Match" text background color.
     If the background is white, the match is regular.
     """
-    ocr_result = await paddleocr(image, ocr_task)
+    ocr_result = await paddleocr(image)
 
     if not ocr_result:
         return False

@@ -13,7 +13,7 @@ DEBUG = True
 FOLDER = './images/player_performance'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_player_performance_screen(screenshot_path, ocr):
+async def process_player_performance_screen(screenshot_path):
     """Process the player performance screen to extract data."""
     image = cv2.imread(screenshot_path)
 
@@ -22,7 +22,7 @@ async def process_player_performance_screen(screenshot_path, ocr):
     upscaled_image = upscale_image(cropped_image, 4)
     processed_image = grayscale_image(upscaled_image)
     
-    result = await paddleocr(processed_image, ocr)
+    result = await paddleocr(processed_image)
 
     if DEBUG:
         save_image(processed_image, FOLDER, "player_performance_processed.png")

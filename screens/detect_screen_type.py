@@ -127,7 +127,7 @@ def is_match_facts_extended_screen(ocr_output_words):
 
     return check_keywords(ocr_output_words, required_keywords)
 
-async def detect_screen_type(screenshot_path, ocr_task):
+async def detect_screen_type(screenshot_path):
     """
     Detects the type of screen in the screenshot.
     Returns the detected screen type as a string or 'unknown'.
@@ -135,7 +135,7 @@ async def detect_screen_type(screenshot_path, ocr_task):
     if not os.path.exists(screenshot_path):
         raise FileNotFoundError(f"{screenshot_path} does not exist.")
 
-    ocr_output = await extract_text_from_image(screenshot_path, ocr_task)
+    ocr_output = await extract_text_from_image(screenshot_path)
     
     # Preprocess OCR output to a set of lowercased words
     ocr_output_words = preprocess_ocr_output(ocr_output)
@@ -162,7 +162,7 @@ async def detect_screen_type(screenshot_path, ocr_task):
         image = cv2.imread(screenshot_path)
         upscaled_image = upscale_image(image)
 
-        is_regular_match = await check_is_regular_match(upscaled_image, ocr_task)
+        is_regular_match = await check_is_regular_match(upscaled_image)
 
         if is_regular_match:
             return PRE_MATCH

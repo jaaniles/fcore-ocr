@@ -15,12 +15,12 @@ DEBUG = True
 FOLDER = './images/sim_match_performance'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_sim_match_performance(screenshot_path, team, ocr):
+async def process_sim_match_performance(screenshot_path, team):
     team_name = team['teamName']
 
     image = cv2.imread(screenshot_path)
     # Step 1: Perform OCR on the full image using paddleocr
-    ocr_data = await paddleocr(image, ocr)
+    ocr_data = await paddleocr(image)
 
     # Step 2: Detect the team side (home or away)
     _, image_width, _ = image.shape  # Get image dimensions
@@ -41,7 +41,7 @@ async def process_sim_match_performance(screenshot_path, team, ocr):
     cv2.imwrite(cropped_filename, cropped_image)
 
     # Step 5: Re-run OCR on the cropped image to get player data
-    cropped_ocr_data = await paddleocr(cropped_image, ocr)
+    cropped_ocr_data = await paddleocr(cropped_image)
 
     # Step 6: Extract player information (name, rating, is_sub, scored_goal)
     player_data = extract_player_data(cropped_ocr_data, cropped_image, team_side)

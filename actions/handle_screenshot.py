@@ -4,9 +4,9 @@ from reports.report_utils import show_missing_screens
 from screens.extract_data_from_screen import extract_data_from_screen
 from screens.detect_screen_type import detect_screen_type
 
-async def handle_screenshot(screenshot_path, ocr, report, report_type, user_id, team, overlay):
+async def handle_screenshot(screenshot_path, report, report_type, user_id, team, overlay):
     """Handles the screenshot action and adds the screen data to the report"""
-    screen_type = await detect_screen_type(screenshot_path, ocr)
+    screen_type = await detect_screen_type(screenshot_path)
 
     # No report type yet, determine report from initial screen
     if not report_type:
@@ -17,7 +17,7 @@ async def handle_screenshot(screenshot_path, ocr, report, report_type, user_id, 
                 show_expected_screens(report_type, overlay)  # Inform user what screens to capture
                 
                 # Add initial screen data to report
-                initial_screen_data = await extract_data_from_screen(screen_type, screenshot_path, team, ocr)
+                initial_screen_data = await extract_data_from_screen(screen_type, screenshot_path, team)
                 add_screen_data(report, screen_type, initial_screen_data)
                 return report, report_type
 
@@ -30,7 +30,7 @@ async def handle_screenshot(screenshot_path, ocr, report, report_type, user_id, 
     allowed_screens = report_config["required_screens"] + report_config["optional_screens"]
     
     if screen_type in allowed_screens:
-        screen_data = await extract_data_from_screen(screen_type, screenshot_path, team, ocr)
+        screen_data = await extract_data_from_screen(screen_type, screenshot_path, team)
         add_screen_data(report, screen_type, screen_data)
 
         # Show which screens are still missing

@@ -15,13 +15,13 @@ DEBUG = True
 FOLDER = './images/player_performance_extended'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_player_performance_extended(screenshot_path, ocr):
+async def process_player_performance_extended(screenshot_path):
     """Process the player performance extended screen to extract data."""
     image = cv2.imread(screenshot_path)
     cropped_image = crop_performance_area(image)
     grayscale = grayscale_image(cropped_image)
 
-    result = await paddleocr(grayscale, ocr)
+    result = await paddleocr(grayscale)
     annotate_ocr_results(grayscale, FOLDER, result)
 
     player_data = extract_player_data(result, cropped_image)

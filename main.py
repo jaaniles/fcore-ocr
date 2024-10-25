@@ -1,7 +1,6 @@
 import asyncio 
 import win32api
 import win32con
-import inquirer
 
 from actions.handle_screenshot import handle_screenshot
 from actions.handle_refresh import handle_refresh
@@ -9,7 +8,7 @@ from actions.handle_optional_screens import handle_optional_screens
 from auth import load_session, restore_or_authenticate
 from cache import load_selected_team
 from database import get_user_teams
-from ocr import initialize_paddleocr
+from ocr_manager import initialize_paddleocr
 from overlay import OverlayWindow
 from priority import set_highest_priority, set_normal_priority
 from reports.handle_report_submission import handle_report_submission
@@ -21,7 +20,7 @@ from select_team import select_team
 
 running = True  # Global flag to control the main process
 
-async def start_main_process(user_id, selected_team, overlay, ocr):
+async def start_main_process(user_id, selected_team, overlay):
     global running
 
     print(f"Monitoring screenshots for team: {selected_team['teamName']}")
@@ -52,7 +51,7 @@ async def start_main_process(user_id, selected_team, overlay, ocr):
                 overlay.show("Screenshotting..", duration=3)
 
                 screenshot_path = take_screenshot()
-                report, report_type = await handle_screenshot(screenshot_path, ocr, report, report_type, user_id, selected_team, overlay)
+                report, report_type = await handle_screenshot(screenshot_path, report, report_type, user_id, selected_team, overlay)
 
                 # Handle optional screens logic
                 if report_type and handle_optional_screens(report, report_type, overlay):
@@ -66,7 +65,7 @@ async def start_main_process(user_id, selected_team, overlay, ocr):
 
             if action_refresh:
                 # Handle refresh action (F5)
-                await handle_refresh(action_refresh, user_id, selected_team, overlay, ocr)
+                await handle_refresh(action_refresh, user_id, selected_team, overlay)
 
             if action_abort and report:
                 # Handle abort action (F3) and delete the selected report
@@ -97,7 +96,7 @@ async def main():
     global running
 
     overlay = OverlayWindow()  # Initialize overlay
-    ocr_startup_task = asyncio.create_task(initialize_paddleocr())
+    asyncio.create_task(initialize_paddleocr())
 
     try:
         # Step 1: Load session from file
@@ -114,7 +113,7 @@ async def main():
         # Step 4: Proceed optimistically with the cached team if available
         if cache_team:
             user_id = cache_team.get('userId')
-            main_process_task = asyncio.create_task(start_main_process(user_id, cache_team, overlay, ocr_startup_task))
+            main_process_task = asyncio.create_task(start_main_process(user_id, cache_team, overlay))
         else:
             print("No cached team available, waiting for authentication to proceed.")
             main_process_task = None  # Will wait for team selection after auth
@@ -142,7 +141,7 @@ async def main():
             selected_team = select_team(user_id, teams)
 
             # Start the main process with the selected team
-            await start_main_process(user_id, selected_team, overlay, ocr_startup_task)
+            await start_main_process(user_id, selected_team, overlay)
         else:
             # If authentication succeeds but we already started the main process, continue
             await main_process_task  # Wait for the optimistic process to finish

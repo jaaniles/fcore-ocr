@@ -9,7 +9,6 @@ from crop import crop_area, crop_image
 from image_processing import upscale_image
 from ocr import paddleocr
 from player_name import is_valid_player_name
-from screens.check_is_regular_match import check_is_regular_match
 
 # Allow saving images for debugging purposes
 DEBUG = True
@@ -17,7 +16,7 @@ DEBUG = True
 FOLDER = './images/pre_match'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_pre_match(screenshot_path, ocr):
+async def process_pre_match(screenshot_path):
     # Load the screenshot
     image = cv2.imread(screenshot_path)
     upscaled_image = upscale_image(image)
@@ -38,8 +37,8 @@ async def process_pre_match(screenshot_path, ocr):
                                           (block_coords[2], block_coords[3]), (255, 255, 0), thickness=-1)
 
     # Step 3: Perform OCR on each cropped section
-    match_date_result = await paddleocr(cropped_match_date, ocr)
-    starting_11_result = await paddleocr(processed_starting_11, ocr)
+    match_date_result = await paddleocr(cropped_match_date)
+    starting_11_result = await paddleocr(processed_starting_11)
 
     # Save cropped images for debugging
     if DEBUG:
@@ -50,7 +49,7 @@ async def process_pre_match(screenshot_path, ocr):
         annotate_ocr_results(processed_starting_11, starting_11_result)
 
     match_date = extract_match_date(match_date_result)
-    starting_11 = await extract_starting_11(starting_11_result, cropped_starting_11, ocr)
+    starting_11 = await extract_starting_11(starting_11_result, cropped_starting_11)
     pprint.pprint(starting_11)
 
     return {
@@ -75,7 +74,7 @@ def annotate_ocr_results(image, ocr_results):
     # Save the annotated image
     cv2.imwrite(os.path.join(FOLDER, f"annotated_pre_match.png"), image)
 
-async def extract_starting_11(ocr_results, image, ocr):
+async def extract_starting_11(ocr_results, image):
     """
     Process the OCR results to extract player names and crop mood and player form symbols based on bounding boxes.
     """
@@ -134,7 +133,7 @@ async def extract_starting_11(ocr_results, image, ocr):
             # Preprocess for better OCR results
             processed_player_form, isPositive = preprocess_player_form_image(player_form_area)
             # Perform OCR 
-            player_form_result = await paddleocr(processed_player_form, ocr)  # Perform OCR on the form area
+            player_form_result = await paddleocr(processed_player_form)  # Perform OCR on the form area
             player_form_value = process_player_form_value(player_form_result, isPositive)
 
             if DEBUG:   

@@ -12,14 +12,14 @@ DEBUG = True
 FOLDER = './images/sim_match_facts'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_sim_match_facts(screenshot_path, team, ocr):
+async def process_sim_match_facts(screenshot_path, team):
     """
     Main function that processes match facts, returning relevant data.
     """
     our_team_name = team['teamName']
 
     image = cv2.imread(screenshot_path)
-    result = await paddleocr(image, ocr)
+    result = await paddleocr(image)
 
     # Step 1: Process penalties
     penalties = process_penalties(result)
@@ -33,7 +33,7 @@ async def process_sim_match_facts(screenshot_path, team, ocr):
 
     # Step 4: Determine our team and relevant stats
     our_team, their_team = determine_our_team(home_team, away_team, our_team_name)
-    stats = await extract_stats(result, score_bbox, image, ocr)
+    stats = await extract_stats(result, score_bbox, image)
 
     # Step 5: Determine match result, including penalties
     winner, home_score, away_score, is_draw, penalties = determine_match_result(score, penalties)
@@ -116,7 +116,7 @@ def determine_our_team(home_team, away_team, our_team):
     else:
         raise ValueError(f"Our team '{our_team}' could not be matched to either '{home_team}' or '{away_team}'.")
 
-async def extract_stats(ocr_data, score_bbox, image, ocr):
+async def extract_stats(ocr_data, score_bbox, image):
     """
     Extract statistics values for keywords like 'Possession %', 'Shots', and 'Chances' from an OCR-processed image.
     
@@ -180,7 +180,7 @@ async def extract_stats(ocr_data, score_bbox, image, ocr):
                 cropped_area = image[y_min:y_max, x_min:x_max]
 
                 # Step 7: Run OCR on the cropped image to extract the value (start with paddleOCR)
-                ocr_result = await paddleocr(cropped_area, ocr)
+                ocr_result = await paddleocr(cropped_area)
                 value = extract_number_value(ocr_result)
 
                 # Step 8: If no value is found, try easyOCR

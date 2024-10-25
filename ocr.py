@@ -1,32 +1,17 @@
-from functools import partial
 import logging
-import asyncio
 import os
 import cv2
-
-from timed_import import timed_import
-PaddleOCR = timed_import('paddleocr', 'PaddleOCR')
+from ocr_manager import get_ocr_instance
 
 #reader = easyocr.Reader(['en'], gpu=True)
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 
-async def initialize_paddleocr():
-    """Initialize PaddleOCR asynchronously"""
-    print("Initializing PaddleOCR...")
-    loop = asyncio.get_event_loop()
-
-    ocr_partial = partial(PaddleOCR, use_angle_cls=True, lang='en', use_gpu=True)
-    ocr_instance = await loop.run_in_executor(None, ocr_partial)
-
-    print("PaddleOCR initialized.")
-    return ocr_instance
-
-async def extract_text_from_image(image_path, ocr_task):
+async def extract_text_from_image(image_path):
     """
     Extracts text from the given image using PaddleOCR.
     """
-    ocr_instace = await ocr_task
-    result = ocr_instace.ocr(image_path)
+    ocr = await get_ocr_instance()
+    result = ocr.ocr(image_path)
 
     if result is None:
         return []
@@ -82,9 +67,9 @@ def annotate_ocr_results(image, folder, ocr_results):
     # Save the annotated image
     cv2.imwrite(os.path.join(folder, f"annotated_image.png"), image)
 
-async def paddleocr(image, ocr_task):
-    ocr_instance = await ocr_task
-    ocr_result = ocr_instance.ocr(image)
+async def paddleocr(image):
+    ocr = await get_ocr_instance()
+    ocr_result = ocr.ocr(image)
     
     return ocr_result
 
