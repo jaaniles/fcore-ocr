@@ -25,7 +25,7 @@ async def extract_text_from_image(image_path):
 
         for text_line in line:
             ocr_output.append(text_line[1][0])
-    return " ".join(ocr_output)
+    return " ".join(ocr_output), result
 
 def extract_number_value(ocr_result):
     for bbox, text, _ in parse_ocr(ocr_result):

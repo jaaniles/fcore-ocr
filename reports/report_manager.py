@@ -67,9 +67,16 @@ def save_to_cache(report):
         json.dump(report, cache_file, default=custom_json_serializer)
 
 # Add screen data to the report
-def add_screen_data(report, screen_type, screen_data):
+def set_screen_data(report, screen_type, screen_data):
     report["screens_data"][screen_type] = screen_data
-    print("Added data to report.", screen_data)
+
+    save_to_cache(report)
+
+def add_screen_data(report, screen_type, screen_data):
+    if screen_type not in report["screens_data"]:
+        report["screens_data"][screen_type] = []
+    report["screens_data"][screen_type].append(screen_data)
+
     save_to_cache(report)
 
 # Check if the report is complete (all required screens are captured)
