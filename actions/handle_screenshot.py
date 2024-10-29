@@ -1,7 +1,7 @@
 from reports.report_manager import add_screen_data, create_report, set_screen_data, show_expected_screens
 from reports.report_types import REPORT_TYPES
 from screens.extract_data_from_screen import extract_data_from_screen
-from screens.detect_screen_type import detect_screen_type
+from screens.detect_match_screen_type import detect_match_screen_type
 from show_missing_screens import show_missing_screens
 
 async def handle_screenshot(screenshot_path, report, report_type, user_id, team, overlay):
@@ -9,7 +9,7 @@ async def handle_screenshot(screenshot_path, report, report_type, user_id, team,
     Handles the screenshot action, determines the report type and screen type,
     and manages the report data collection based on detected screen information.
     """
-    screen_type = await detect_screen_type(screenshot_path)
+    screen_type = await detect_match_screen_type(screenshot_path)
     print(f"Detected screen: {screen_type}")
 
     # Initialize report if necessary
