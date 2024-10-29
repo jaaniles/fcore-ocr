@@ -17,7 +17,6 @@ async def handle_screenshot(screenshot_path, report, report_type, user_id, team,
 
     # Perform data extraction if report_type is set and screen is allowed
     if report_type:
-        print("REPORT TYPE:", report_type)
         await extract_and_process_screen_data(screenshot_path, report, report_type, team, screen_type, overlay)
 
     return report, report_type

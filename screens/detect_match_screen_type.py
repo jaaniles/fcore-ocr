@@ -2,8 +2,8 @@ import os
 import re
 import cv2
 from crop import crop_image
-from ocr import extract_text_from_image, find_text_in_ocr, paddleocr
-from positions import is_position_found
+from ocr import find_text_in_ocr, paddleocr
+from positions import find_position_from_ocr
 from save_image import save_image
 from screens.check_is_regular_match import check_is_regular_match
 from screens.screen_types import (
@@ -20,27 +20,32 @@ async def detect_match_screen_type(screenshot_path):
     
     image = cv2.imread(screenshot_path)
 
-    if await is_pre_match_screen(image):
-        cropped_image = crop_image(image, (470, 1170, 1150, 1350))
-        is_regular_pre_match = await check_is_regular_match(cropped_image)
+    # Attempt each screen detection function and return the first detected type
+    screen_type = await is_pre_match_screen(image)
+    if screen_type:
+        return screen_type
 
-        if is_regular_pre_match:
-            return PRE_MATCH
-        
-        return SIM_PRE_MATCH
+    screen_type = await is_match_facts_screen(image)
+    if screen_type:
+        return screen_type
 
-    elif await is_match_facts_screen(image):
-        return MATCH_FACTS
-    elif await is_performance_screen(image):
-        return PLAYER_PERFORMANCE
-    elif await is_performance_extended_screen(image):
-        return PLAYER_PERFORMANCE_EXTENDED
-    elif await is_sim_match_facts_screen(image):
-        return SIM_MATCH_FACTS
-    elif await is_sim_match_performance_screen(image):
-        return SIM_MATCH_PERFORMANCE
-    else:
-        return "unknown"
+    screen_type = await is_performance_screen(image)
+    if screen_type:
+        return screen_type
+
+    screen_type = await is_performance_extended_screen(image)
+    if screen_type:
+        return screen_type
+
+    screen_type = await is_sim_match_facts_screen(image)
+    if screen_type:
+        return screen_type
+
+    screen_type = await is_sim_match_performance_screen(image)
+    if screen_type:
+        return screen_type
+
+    return "unknown"
 
 async def is_pre_match_screen(image):
     cropped_image = crop_image(image, (470, 1170, 1150, 1350))
@@ -54,7 +59,11 @@ async def is_pre_match_screen(image):
     if not is_pre_match:
         return False
     
-    return True
+    is_regular_pre_match = await check_is_regular_match(cropped_image)
+    if is_regular_pre_match:
+        return PRE_MATCH
+    
+    return SIM_PRE_MATCH
     
 async def is_match_facts_screen(image):
     cropped_image = crop_image(image, (1859, 420, 2500, 520))
@@ -76,8 +85,8 @@ async def is_performance_screen(image):
     if DEBUG:
         save_image(cropped_image, "./images/debug/", "performance.png")
 
-    words = await extract_text_from_image(cropped_image)
-    is_performance_screen = is_position_found(words)
+    ocr_result = await paddleocr(cropped_image)
+    is_performance_screen = find_position_from_ocr(ocr_result)
 
     if not is_performance_screen:
         return False
@@ -123,5 +132,10 @@ async def is_sim_match_performance_screen(image):
 
     if not is_sim_match_performance_screen:
         return False
+    
+    is_bench_view, _, _ = find_text_in_ocr(ocr_result, "n/a")
+
+    if is_bench_view:
+        return SIM_MATCH_PERFORMANCE_BENCH
     
     return SIM_MATCH_PERFORMANCE

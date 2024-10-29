@@ -162,7 +162,6 @@ def find_text_in_ocr(ocr_result, target_text):
         return None, None, None
 
     for bbox, text, confidence in parse_ocr(ocr_result):
-        print(text)
         if text.strip().lower() == target_text.lower():
             return bbox, text, confidence
 

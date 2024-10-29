@@ -1,4 +1,5 @@
 from firebase import db
+import numpy as np
 
 def get_user_teams(user_id):
     try:
@@ -34,10 +35,30 @@ def save_to_collection(collection_name, data):
         str: Document ID of the saved document, or None if there was an error.
     """
     try:
-        doc_ref = db.collection(collection_name).add(data)
+        sanitized_data = serialize_for_firestore(data)
+
+        doc_ref = db.collection(collection_name).add(sanitized_data)
         print(f"Data saved to {collection_name} with ID: {doc_ref[1].id}")
-        return doc_ref[1].id  # Return the document ID
+        return doc_ref[1].id 
 
     except Exception as e:
         print(f"Error saving to {collection_name}: {e}")
         return None
+    
+
+def serialize_for_firestore(data):
+    """Recursively convert data to Firestore-compatible types."""
+    if isinstance(data, dict):
+        return {k: serialize_for_firestore(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [serialize_for_firestore(item) for item in data]
+    elif isinstance(data, np.bool_):
+        return bool(data)
+    elif isinstance(data, (np.integer, int)):
+        return int(data)
+    elif isinstance(data, (np.floating, float)):
+        return float(data)
+    elif isinstance(data, np.ndarray):
+        return data.tolist()
+    else:
+        return data  # Default return for JSON-compatible types

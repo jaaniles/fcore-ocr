@@ -1,22 +1,25 @@
+import difflib
 import os
+import pprint
 import re
 import cv2
 
 from crop import crop_image, crop_region
 from image_processing import upscale_image
-from ocr import extract_number_value, paddleocr
+from ocr import extract_number_value, paddleocr, parse_ocr
+from save_image import save_image
 
 DEBUG = True
 FOLDER = './images/match_facts'
 os.makedirs(FOLDER, exist_ok=True)
 
-async def process_match_facts(screenshot_path):
+async def process_match_facts(screenshot_path, our_team):
+    our_team_name = our_team['teamName']
     image = cv2.imread(screenshot_path)
 
-    # Co-ordinates for cropping the stats
+    # Coordinates for cropping the stats
     match_score_coords = (1900, 80, 3440 - 400, 1440 - 1270)  
     possession_stats_coords = (1950, 375, 3400 - 880, 1440 - 880) 
-
     shots_stats_coords = (1550, 715, 3440 - 500, 1440 - 620)
     passes_stats_coords = (1550, 800, 3440 - 500, 920)
     accuracy_stats_coords = (1550, 900, 3440 - 500, 1020)
@@ -29,61 +32,63 @@ async def process_match_facts(screenshot_path):
     cropped_passes = crop_image(image, passes_stats_coords)
     cropped_accuracy = crop_image(image, accuracy_stats_coords)
     cropped_tackles = crop_image(image, tackles_stats_coords)
-    
-    # Apply OCR to each cropped area
-    match_score_result = await paddleocr(cropped_match_score)
+
+    if DEBUG:
+        save_image(cropped_match_score, FOLDER, "match_score.png")
+        save_image(cropped_possession, FOLDER, "possession_stats.png")
+        save_image(cropped_shots, FOLDER, "shots_stats.png")
+        save_image(cropped_passes, FOLDER, "passes_stats.png")
+        save_image(cropped_accuracy, FOLDER, "accuracy_stats.png")
+        save_image(cropped_tackles, FOLDER, "tackles_stats.png")
+
+    # Perform OCR on each cropped section
     possession_stats_result = await paddleocr(cropped_possession)
     shots_result = await paddleocr(cropped_shots)
     passes_result = await paddleocr(cropped_passes)
     accuracy_result = await paddleocr(cropped_accuracy)
     tackles_result = await paddleocr(cropped_tackles)
 
-    home, away = process_match_score(match_score_result)
+    # Extract match facts
+    home, away = await process_match_score(cropped_match_score)
     home_possession, away_possession = process_possession_stats(possession_stats_result)
     home_shots, away_shots = await extract_value(shots_result, "Shots", cropped_shots)
     home_passes, away_passes = await extract_value(passes_result, "Passes", cropped_passes)
     home_accuracy, away_accuracy = await extract_value(accuracy_result, "Accuracy", cropped_accuracy)
     home_tackles, away_tackles = await extract_value(tackles_result, "Tackles", cropped_tackles)
+
+    # Determine which team is ours
     home_team = home['team_name']
     away_team = away['team_name']
     home_score = home['score']
     away_score = away['score']
+    
+    our_team, their_team = determine_our_team(home_team, away_team, our_team_name)
+    is_home_team = our_team == home_team
 
-    print("Match Score:")
-    print(home_team + " - " + away_team)
-    print(str(home_score) + " - " + str(away_score))
-
-    print("Possession Stats:")
-    print(home_possession, away_possession)
-
-    print("Shots:")
-    print(home_shots, away_shots)
-
-    print("Passes:")
-    print(home_passes, away_passes)
-
-    print("Accuracy:")
-    print(home_accuracy, away_accuracy)
-
-    print("Tackles:")
-    print(home_tackles, away_tackles)
-
-    return {
-        'home_team': home_team,
-        'away_team': away_team,
-        'home_score': home_score,
-        'away_score': away_score,
-        'home_possession': home_possession,
-        'away_possession': away_possession,
-        'home_shots': home_shots,
-        'away_shots': away_shots,
-        'home_passes': home_passes,
-        'away_passes': away_passes,
-        'home_accuracy': home_accuracy,
-        'away_accuracy': away_accuracy,
-        'home_tackles': home_tackles,
-        'away_tackles': away_tackles
+    match_facts = {
+        'our_team': {
+            'name': our_team,
+            'score': home_score if is_home_team else away_score,
+            'possession': home_possession if is_home_team else away_possession,
+            'shots': home_shots if is_home_team else away_shots,
+            'passes': home_passes if is_home_team else away_passes,
+            'accuracy': home_accuracy if is_home_team else away_accuracy,
+            'tackles': home_tackles if is_home_team else away_tackles,
+        },
+        'their_team': {
+            'name': their_team,
+            'score': away_score if is_home_team else home_score,
+            'possession': away_possession if is_home_team else home_possession,
+            'shots': away_shots if is_home_team else home_shots,
+            'passes': away_passes if is_home_team else home_passes,
+            'accuracy': away_accuracy if is_home_team else home_accuracy,
+            'tackles': away_tackles if is_home_team else home_tackles,
+        }
     }
+
+    pprint.pprint(match_facts)
+
+    return match_facts
 
 # Helper function to calculate the center of a bounding box
 def calculate_center(bounding_box):
@@ -143,43 +148,18 @@ async def extract_value(ocr_result, keyword, image):
 
     return None, None
 
-def process_match_score(ocr_output):
-    if not ocr_output:
-        return {'home_team': None, 'away_team': None, 'home_score': None, 'away_score': None}
-    
-    items = ocr_output[0]
-    text_items = []
+async def process_match_score(image):
+    ocr_result = await paddleocr(image)
+    home_team, away_team = extract_team_names(ocr_result)
 
-    if not items:
-        return {'home_team': None, 'away_team': None, 'home_score': None, 'away_score': None}
+    cropped_score = crop_image(image, (520, 0, 680, 100))
+    save_image(cropped_score, FOLDER, "debug_crop_score.png")
+    score_ocr_result = await paddleocr(cropped_score)
 
-    for item in items:
-        coords = item[0]
-        text, confidence = item[1]
-        x_coords = [p[0] for p in coords]
-        avg_x = sum(x_coords) / len(x_coords)
-        text_items.append({'x': avg_x, 'text': text})
-    text_items.sort(key=lambda x: x['x'])
+    print("OCR RESULT?", score_ocr_result)
 
-    home_team = None
-    away_team = None
-    home_score = None
-    away_score = None
+    home_score, away_score = extract_scores_from_ocr(score_ocr_result)
 
-    for item in text_items:
-        text = item['text']
-        if re.search(r'[-:]', text):
-            score_text = text.replace(' ', '')
-            match = re.match(r'(\d+)[-:](\d+)', score_text)
-            if match:
-                home_score = int(match.group(1))
-                away_score = int(match.group(2))
-        elif len(text) > 3:
-            if home_team is None:
-                home_team = text
-            else:
-                away_team = text
-    
     home = {
         'team_name': home_team,
         'score': home_score
@@ -191,6 +171,73 @@ def process_match_score(ocr_output):
     }
 
     return home, away
+
+
+def extract_scores_from_ocr(ocr_output):
+    """
+    Extracts home and away scores from OCR output.
+    
+    Parameters:
+        ocr_output (list): The structured OCR output.
+    
+    Returns:
+        tuple: Home and away scores as integers, or None if not found.
+    """
+    # Initialize home and away scores
+    home_score, away_score = None, None
+
+    # Regex to match common OCR patterns for scores (e.g., '1-1', '1 -1', '1 - 1')
+    score_pattern = re.compile(r'(\d)\s*-\s*(\d)')
+
+    # Check each OCR text line for the score pattern
+    for item in ocr_output[0]:
+        text = item[1][0]  # Extract the text part of the OCR item
+        
+        # Try to match the score pattern directly
+        match = score_pattern.search(text)
+        if match:
+            home_score, away_score = int(match.group(1)), int(match.group(2))
+            break
+
+        # If no direct match, handle split scores (e.g., "1" in one item and "1" in another)
+        text_parts = re.findall(r'\d', text)
+        if len(text_parts) == 2:
+            home_score, away_score = int(text_parts[0]), int(text_parts[1])
+            break
+
+    return home_score, away_score
+
+def extract_team_names(ocr_output, confidence_threshold=0.7):
+    """
+    Extracts home and away team names from OCR output, filtering out scores and time formats.
+    
+    Parameters:
+        ocr_output (list): The structured OCR output.
+        confidence_threshold (float): Minimum confidence to consider a valid text.
+    
+    Returns:
+        tuple: Home and away team names as strings, or None if not found.
+    """
+    left_team_name, right_team_name = None, None
+    left_max_x, right_min_x = float('inf'), float('-inf')
+
+    score_pattern = re.compile(r'^\d\s*-\s*\d$')
+    time_pattern = re.compile(r'^\d{1,2}:\d{2}$')
+    
+    for bbox, text, confidence in parse_ocr(ocr_output):
+        # Ignore entries with low confidence, score pattern, or time format
+        if confidence < confidence_threshold or score_pattern.match(text) or time_pattern.match(text):
+            continue
+
+        # Determine if the text belongs to the left or right team based on bbox x-coordinates
+        if bbox[0][0] < left_max_x:
+            left_team_name = text
+            left_max_x = bbox[0][0]
+        elif bbox[0][0] > right_min_x:
+            right_team_name = text
+            right_min_x = bbox[0][0]
+
+    return left_team_name, right_team_name
 
 def process_home_away_stats(ocr_output, stat_name):
     if not ocr_output:
@@ -242,3 +289,18 @@ def process_possession_stats(ocr_output):
     away = stats['possession_away']
 
     return home, away
+
+def determine_our_team(home_team, away_team, our_team):
+    """
+    Uses fuzzy matching to determine which team is ours.
+    """
+    home_match = difflib.get_close_matches(our_team, [home_team], n=1, cutoff=0.6)
+    away_match = difflib.get_close_matches(our_team, [away_team], n=1, cutoff=0.6)
+
+    if home_match:
+        return home_team, away_team
+    elif away_match:
+        return away_team, home_team
+    else:
+        raise ValueError(f"Our team '{our_team}' could not be matched to either '{home_team}' or '{away_team}'.")
+    

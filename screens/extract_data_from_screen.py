@@ -21,7 +21,7 @@ async def extract_data_from_screen(screen_type, screenshot_path, team):
         return await process_pre_match(screenshot_path)
     
     elif screen_type == MATCH_FACTS:
-        return await process_match_facts(screenshot_path)
+        return await process_match_facts(screenshot_path, team)
     
     elif screen_type == PLAYER_PERFORMANCE:
         return await process_player_performance_screen(screenshot_path)
