@@ -7,5 +7,6 @@ screenshots/
 images/
 credentials.json
 local_cache/
+local_player_data/
 service_account.json
 firebase_config.json

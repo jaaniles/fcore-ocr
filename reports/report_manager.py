@@ -20,7 +20,7 @@ def create_report(report_type, user_id):
     """Create a new report with a shortened UUID and save it to cache."""
     report_id = str(uuid.uuid4())[:8]  # Shorten the UUID to 8 characters
     report = {
-        "reportId": report_id,
+        "report_handle": report_id,
         "userId": user_id,
         "report_type": report_type,
         "screens_data": {},
@@ -62,7 +62,7 @@ def custom_json_serializer(obj):
 def save_to_cache(report):
     is_submitted = report["status"] == "complete"
 
-    cache_path = get_cache_path(report["reportId"], report["report_type"], is_submitted)
+    cache_path = get_cache_path(report["report_handle"], report["report_type"], is_submitted)
     with open(cache_path, "w") as cache_file:
         json.dump(report, cache_file, default=custom_json_serializer)
 
@@ -88,19 +88,19 @@ def is_report_complete(report):
 def submit_report(report):
     # Ensure the report isn't already submitted
     if report["status"] == "complete":
-        print(f"Report {report['reportId']} is already submitted.")
+        print(f"Report {report['report_handle']} is already submitted.")
         return
     
-    submit_function = REPORT_TYPES[report["report_type"]]["submit_function"]
-    submit_function(report)  # Directly call the function to submit the report
-
     # Mark the report as complete
     report["status"] = "complete"
     save_to_cache(report)
-    
+
+    submit_function = REPORT_TYPES[report["report_type"]]["submit_function"]
+    submit_function(report)  # Directly call the function to submit the report
+
     # Rename the file after submission
-    old_path = get_cache_path(report["reportId"], report["report_type"])
-    new_path = old_path.with_name(f"{report['report_type']}_{report['reportId']}_submitted.json")
+    old_path = get_cache_path(report["report_handle"], report["report_type"])
+    new_path = old_path.with_name(f"{report['report_type']}_{report['report_handle']}_submitted.json")
     
     # Handle conflict if submitted file already exists
     if os.path.exists(new_path):

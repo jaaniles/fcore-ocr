@@ -14,9 +14,9 @@ from priority import set_highest_priority, set_normal_priority
 from reports.handle_report_submission import handle_report_submission
 from reports.load_incomplete_reports import load_incomplete_reports
 from reports.abort_report import abort_report
-from reports.report_utils import show_missing_screens
 from screenshot import take_screenshot
 from select_team import select_team
+from show_missing_screens import show_missing_screens
 
 running = True  # Global flag to control the main process
 
@@ -33,7 +33,7 @@ async def start_main_process(user_id, selected_team, overlay):
     if report:
         report_type = report["report_type"]
         # Inform the user about the status of the cached report
-        print(f"Loaded cached report: {report['reportId']}, status: {report['status']}")
+        print(f"Loaded cached report: {report['report_handle']}, status: {report['status']}")
         # Show which screens are still missing
         show_missing_screens(report, report_type, overlay)
 

@@ -1,22 +1,32 @@
 import logging
 import os
 import cv2
+import numpy as np
 from ocr_manager import get_ocr_instance
 
 #reader = easyocr.Reader(['en'], gpu=True)
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 
-async def extract_text_from_image(image_path):
+async def extract_text_from_image(image):
     """
     Extracts text from the given image using PaddleOCR.
+    Accepts either an image path (string) or a NumPy image array.
     """
     ocr = await get_ocr_instance()
-    result = ocr.ocr(image_path)
 
-    if result is None:
-        return []
-    elif len(result) == 0:
-        return []
+    # Check if the input is a file path or an image array
+    if isinstance(image, str):  # File path
+        result = ocr.ocr(image)
+    elif isinstance(image, np.ndarray):  # Image array
+        # Convert the image array to a format compatible with PaddleOCR (RGB)
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        result = ocr.ocr(image_rgb, cls=True)
+    else:
+        raise ValueError("Invalid input type for 'image'. Expected file path or NumPy array.")
+
+    # Process the OCR result
+    if result is None or len(result) == 0:
+        return "", []
 
     ocr_output = []
     for line in result:
@@ -25,6 +35,7 @@ async def extract_text_from_image(image_path):
 
         for text_line in line:
             ocr_output.append(text_line[1][0])
+
     return " ".join(ocr_output), result
 
 def extract_number_value(ocr_result):

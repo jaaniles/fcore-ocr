@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from ocr import find_text_in_ocr, paddleocr
 
-
 async def check_is_regular_match(image):
     """
     Checks if match is going to be played as a regular match or simulated

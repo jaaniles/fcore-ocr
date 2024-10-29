@@ -22,7 +22,7 @@ def load_incomplete_reports(overlay=None):
     # If more than one incomplete report is found, let the user choose
     if len(incomplete_reports) > 1:
         choices = [
-            f"{idx + 1}. Report ID: {report['reportId']} (Incomplete)"
+            f"{idx + 1}. Report ID: {report['report_handle']} (Incomplete)"
             for idx, (_, report) in enumerate(incomplete_reports)
         ]
         
@@ -40,7 +40,7 @@ def load_incomplete_reports(overlay=None):
         selected_report = incomplete_reports[0][1]
 
     # Notify the user about the loaded incomplete report
-    report_id = selected_report["reportId"]
+    report_id = selected_report["report_handle"]
     report_type = selected_report["report_type"]
     status = selected_report.get("status", "in_progress")
 

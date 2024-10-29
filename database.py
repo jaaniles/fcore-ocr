@@ -21,3 +21,23 @@ def get_user_teams(user_id):
     except Exception as e:
         print(f"Error fetching user teams: {e}")
         return None
+    
+def save_to_collection(collection_name, data):
+    """
+    Saves data to a specified Firestore collection.
+    
+    Parameters:
+        collection_name (str): The name of the Firestore collection.
+        data (dict): The data to save.
+        
+    Returns:
+        str: Document ID of the saved document, or None if there was an error.
+    """
+    try:
+        doc_ref = db.collection(collection_name).add(data)
+        print(f"Data saved to {collection_name} with ID: {doc_ref[1].id}")
+        return doc_ref[1].id  # Return the document ID
+
+    except Exception as e:
+        print(f"Error saving to {collection_name}: {e}")
+        return None

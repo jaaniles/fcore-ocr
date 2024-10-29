@@ -1,4 +1,4 @@
-from reports.submit_report import submit_match_report, submit_sim_match_report, submit_squad_attributes_report, submit_squad_financial_report  
+from reports.submit_report import submit_match_report, submit_player_report, submit_sim_match_report  
 from screens.screen_types import (
     PLAYER_PERFORMANCE_EXTENDED,
     PRE_MATCH,
@@ -10,13 +10,12 @@ from screens.screen_types import (
     SIM_PRE_MATCH,
     SQUAD_ATTRIBUTES,
     SQUAD_FINANCIAL,
+    SQUAD_STATS
 )
 
 MATCH_REPORT = "match_report"
 SIM_MATCH_REPORT = "sim_match_report"
-SQUAD_FINANCIAL_REPORT = "squad_financial_report"
-SQUAD_ATTRIBUTES_REPORT = "squad_attributes_report"
-SQUAD_STATS_REPORT = "squad_stats_report"
+PLAYER_REPORT = "player_report"
 
 REPORT_TYPES = {
     MATCH_REPORT: {
@@ -33,18 +32,11 @@ REPORT_TYPES = {
         "multi_capture_screens": [],
         "submit_function": submit_sim_match_report,
     },
-    SQUAD_FINANCIAL_REPORT: {
-        "initial_screen": SQUAD_FINANCIAL,
-        "required_screens": [],
+    PLAYER_REPORT: {
+        "initial_screen": SQUAD_STATS,
+        "required_screens": [SQUAD_FINANCIAL, SQUAD_ATTRIBUTES],
         "optional_screens": [],
-        "multi_capture_screens": [SQUAD_FINANCIAL],
-        "submit_function": submit_squad_financial_report,
-    },
-    SQUAD_ATTRIBUTES_REPORT: {
-        "initial_screen": SQUAD_ATTRIBUTES,
-        "required_screens": [],
-        "optional_screens": [],
-        "multi_capture_screens": [SQUAD_ATTRIBUTES],
-        "submit_function": submit_squad_attributes_report,
-    },
+        "multi_capture_screens": [],
+        "submit_function": submit_player_report,
+    }
 }

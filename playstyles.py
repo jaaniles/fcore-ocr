@@ -67,9 +67,9 @@ def match_playstyle(cropped_image, is_gk=False):
     avg_brightness = np.mean(cropped_gray)
     
     if avg_brightness < 60:
-        return "none", None
+        return None, None
 
-    best_match = "none"
+    best_match = None
     best_confidence = 0.0
 
     # Loop through each template and perform template matching

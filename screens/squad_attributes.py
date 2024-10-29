@@ -1,14 +1,12 @@
 from difflib import get_close_matches
-from multiprocessing import process
 import os
 import pprint
 import re
 
 import cv2
 from crop import crop_image
-from image_processing import grayscale_image
 from ocr import paddleocr, parse_ocr
-from playstyles import is_golden_playstyle, match_playstyle
+from playstyles import match_playstyle
 from positions import positions
 from save_image import save_image
 from squad.squad_attributes_data_manager import SquadAttributesDataManager
@@ -36,13 +34,8 @@ async def process_squad_attributes(screenshot_path):
     player_data = await extract_player_info(cropped_image)
     pprint.pprint(player_data)
 
-    # Generate and store unique player ID
-    player_id = f"{player_data.get('name', 'Unknown')}_{player_data.get('overall_rating', 'N/A')}"
-    if not manager.is_player_processed(player_id):
-        manager.add_player(player_id, player_data)
-
     # Return all players processed so far
-    return manager.get_all_players()
+    return player_data
 
 async def extract_player_info(image):
     player = {}
@@ -50,31 +43,22 @@ async def extract_player_info(image):
     # Crop specific areas for OCR
     cropped_overall = crop_image(image, (70, 0, 180, 60))
     cropped_position = crop_image(image, (180, 0, 600, 60))
-
-    cropped_name = crop_image(image, (50, 60, 700, 160))
-    # Cover flag from the image so OCR does not get confused
-    processed_name = cv2.rectangle(cropped_name, (0, 50), 
-                                          (80, 100), (255, 255, 0), thickness=-1)
-
     cropped_info = crop_image(image, (70, 160, 800, 260))
     cropped_skills = crop_image(image, (70, 300, 460, 800))
 
     if DEBUG:
         save_image(cropped_overall, FOLDER, "cropped_overall.png")
         save_image(cropped_position, FOLDER, "cropped_position.png")
-        save_image(processed_name, FOLDER, "cropped_name.png")
         save_image(cropped_info, FOLDER, "cropped_info.png")
         save_image(cropped_skills, FOLDER, "cropped_skills.png")
 
     ocr_overall = await paddleocr(cropped_overall)
     ocr_position = await paddleocr(cropped_position)
-    ocr_name = await paddleocr(processed_name)
     ocr_info = await paddleocr(cropped_info)
     ocr_skills = await paddleocr(cropped_skills)
 
     player['overall_rating'] = extract_overall_rating(ocr_overall)
     player['position'] = extract_position(ocr_position)
-    player['name'] = extract_full_name(ocr_name)
     player['info'] = extract_basic_info(ocr_info)
 
     is_gk = 'gk' in player['position']
@@ -90,7 +74,7 @@ async def extract_player_info(image):
         playstyle, _ = match_playstyle(playstyle_image, is_gk=is_gk)
         playstyles.append((playstyle))
 
-    player['playstyles'] = playstyles
+    player['playstyles'] = list(filter(None, playstyles))
 
     return player
 
@@ -217,6 +201,7 @@ def extract_skills(ocr_skills, is_goalkeeper=False):
     extracted_texts = [text.strip() for _, text, _ in parse_ocr(ocr_skills)]
 
     # Track the current index in extracted_texts
+    # Track the current index in extracted_texts
     i = 0
     for skill in expected_skills:
         # Use a while loop to find the skill label followed by a numeric value
@@ -230,10 +215,14 @@ def extract_skills(ocr_skills, is_goalkeeper=False):
                     skills[skill] = int(value)
                     i += 2  # Move past this pair
                     break  # Move to next skill
+                else:
+                    # Skip both label and value if value isn't a digit to avoid getting stuck
+                    i += 2
+                    print(f"Skipped: Label '{label}' matched but value '{value}' is not a digit")  # Debug: Skipped item
             else:
                 i += 1  # Move to the next item if pair is invalid to prevent infinite loop
                 print(f"Skipped: Label '{label}' did not match")  # Debug: Skipped item
-    
+        
     return skills
 
 
@@ -275,23 +264,6 @@ def extract_position(ocr_position_data):
         if not match_found:
             i += 1
     return extracted_positions
-
-def extract_full_name(name_ocr):
-    """
-    Extracts and combines parts of the name from OCR data.
-    """
-    name_parts = []
-
-    def extract_text(data):
-        if isinstance(data, list):
-            for item in data:
-                extract_text(item)
-        elif isinstance(data, tuple) and isinstance(data[0], str):
-            name_parts.append(data[0].strip())
-    
-    extract_text(name_ocr)
-    full_name = " ".join(name_parts)
-    return full_name.strip()
 
 def convert_height_to_cm(feet, inches=0):
     """
